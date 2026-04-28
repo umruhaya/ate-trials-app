@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
 import {
 	Bar,
@@ -27,7 +27,20 @@ export const Route = createFileRoute(
 	"/c/$portalSlug/trials/$triallSlug/dashboard",
 )({
 	component: RouteComponent,
-	beforeLoad: requireAuthenticated(),
+	beforeLoad: async (opts) => {
+		const guard = requireAuthenticated();
+		const result = await guard(opts);
+		if (result.user.role !== "admin") {
+			throw redirect({
+				to: "/c/$portalSlug/trials/$triallSlug/events",
+				params: {
+					portalSlug: opts.params.portalSlug,
+					triallSlug: opts.params.triallSlug,
+				},
+			});
+		}
+		return result;
+	},
 	loader: async ({ context, params }) => {
 		await context.queryClient.ensureQueryData(
 			orpc.trials.dashboard.queryOptions({
@@ -75,6 +88,7 @@ function RouteComponent() {
 				<Link
 					to="/c/$portalSlug/trials"
 					params={{ portalSlug }}
+					search={{}}
 					className="mt-4 inline-block text-sm font-medium text-(--lagoon-deep) underline underline-offset-4 hover:text-(--sea-ink)"
 				>
 					Back to trials
@@ -109,6 +123,7 @@ function RouteComponent() {
 				<Link
 					to="/c/$portalSlug/trials"
 					params={{ portalSlug }}
+					search={{}}
 					className="shrink-0 text-sm font-medium text-(--lagoon-deep) underline-offset-4 hover:underline"
 				>
 					All trials

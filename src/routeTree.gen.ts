@@ -16,6 +16,7 @@ import { Route as CPortalSlugRouteImport } from './routes/c.$portalSlug'
 import { Route as ApiSplatRouteImport } from './routes/api.$'
 import { Route as CPortalSlugTrialsRouteImport } from './routes/c.$portalSlug.trials'
 import { Route as ApiRpcSplatRouteImport } from './routes/api.rpc.$'
+import { Route as CPortalSlugTrialsIndexRouteImport } from './routes/c.$portalSlug.trials.index'
 import { Route as CPortalSlugTrialsTriallSlugEventsRouteImport } from './routes/c.$portalSlug.trials.$triallSlug.events'
 import { Route as CPortalSlugTrialsTriallSlugDashboardRouteImport } from './routes/c.$portalSlug.trials.$triallSlug.dashboard'
 
@@ -54,6 +55,11 @@ const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
   path: '/api/rpc/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CPortalSlugTrialsIndexRoute = CPortalSlugTrialsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CPortalSlugTrialsRoute,
+} as any)
 const CPortalSlugTrialsTriallSlugEventsRoute =
   CPortalSlugTrialsTriallSlugEventsRouteImport.update({
     id: '/$triallSlug/events',
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/c/$portalSlug': typeof CPortalSlugRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/c/$portalSlug/trials': typeof CPortalSlugTrialsRouteWithChildren
+  '/c/$portalSlug/trials/': typeof CPortalSlugTrialsIndexRoute
   '/c/$portalSlug/trials/$triallSlug/dashboard': typeof CPortalSlugTrialsTriallSlugDashboardRoute
   '/c/$portalSlug/trials/$triallSlug/events': typeof CPortalSlugTrialsTriallSlugEventsRoute
 }
@@ -85,7 +92,7 @@ export interface FileRoutesByTo {
   '/api/$': typeof ApiSplatRoute
   '/c/$portalSlug': typeof CPortalSlugRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
-  '/c/$portalSlug/trials': typeof CPortalSlugTrialsRouteWithChildren
+  '/c/$portalSlug/trials': typeof CPortalSlugTrialsIndexRoute
   '/c/$portalSlug/trials/$triallSlug/dashboard': typeof CPortalSlugTrialsTriallSlugDashboardRoute
   '/c/$portalSlug/trials/$triallSlug/events': typeof CPortalSlugTrialsTriallSlugEventsRoute
 }
@@ -98,6 +105,7 @@ export interface FileRoutesById {
   '/c/$portalSlug': typeof CPortalSlugRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/c/$portalSlug/trials': typeof CPortalSlugTrialsRouteWithChildren
+  '/c/$portalSlug/trials/': typeof CPortalSlugTrialsIndexRoute
   '/c/$portalSlug/trials/$triallSlug/dashboard': typeof CPortalSlugTrialsTriallSlugDashboardRoute
   '/c/$portalSlug/trials/$triallSlug/events': typeof CPortalSlugTrialsTriallSlugEventsRoute
 }
@@ -111,6 +119,7 @@ export interface FileRouteTypes {
     | '/c/$portalSlug'
     | '/api/rpc/$'
     | '/c/$portalSlug/trials'
+    | '/c/$portalSlug/trials/'
     | '/c/$portalSlug/trials/$triallSlug/dashboard'
     | '/c/$portalSlug/trials/$triallSlug/events'
   fileRoutesByTo: FileRoutesByTo
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/c/$portalSlug'
     | '/api/rpc/$'
     | '/c/$portalSlug/trials'
+    | '/c/$portalSlug/trials/'
     | '/c/$portalSlug/trials/$triallSlug/dashboard'
     | '/c/$portalSlug/trials/$triallSlug/events'
   fileRoutesById: FileRoutesById
@@ -197,6 +207,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRpcSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/c/$portalSlug/trials/': {
+      id: '/c/$portalSlug/trials/'
+      path: '/'
+      fullPath: '/c/$portalSlug/trials/'
+      preLoaderRoute: typeof CPortalSlugTrialsIndexRouteImport
+      parentRoute: typeof CPortalSlugTrialsRoute
+    }
     '/c/$portalSlug/trials/$triallSlug/events': {
       id: '/c/$portalSlug/trials/$triallSlug/events'
       path: '/$triallSlug/events'
@@ -215,11 +232,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface CPortalSlugTrialsRouteChildren {
+  CPortalSlugTrialsIndexRoute: typeof CPortalSlugTrialsIndexRoute
   CPortalSlugTrialsTriallSlugDashboardRoute: typeof CPortalSlugTrialsTriallSlugDashboardRoute
   CPortalSlugTrialsTriallSlugEventsRoute: typeof CPortalSlugTrialsTriallSlugEventsRoute
 }
 
 const CPortalSlugTrialsRouteChildren: CPortalSlugTrialsRouteChildren = {
+  CPortalSlugTrialsIndexRoute: CPortalSlugTrialsIndexRoute,
   CPortalSlugTrialsTriallSlugDashboardRoute:
     CPortalSlugTrialsTriallSlugDashboardRoute,
   CPortalSlugTrialsTriallSlugEventsRoute:
