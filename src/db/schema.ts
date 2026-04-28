@@ -6,7 +6,8 @@ import {
 	sqliteTable,
 	text,
 } from "drizzle-orm/sqlite-core";
-import type { EventMeta, StructuredAnnotation } from "~/schemas";
+import type { EventMeta } from "~/schemas/events";
+import type { StructuredAnnotation } from "~/schemas/structured-annotations";
 
 export const users = sqliteTable("users", {
 	id: text("id").primaryKey(),
