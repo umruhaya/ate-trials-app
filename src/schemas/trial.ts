@@ -12,6 +12,8 @@ export const trialSchema = z.object({
 	createdBy: z.string(),
 	isActive: z.boolean(),
 	communityPortalId: z.string(),
+	startDate: z.date(),
+	endDate: z.date(),
 	createdAt: z.date(),
 });
 

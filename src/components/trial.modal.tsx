@@ -1,8 +1,11 @@
-import { useForm } from "@tanstack/react-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
-import type { z } from "zod";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { endOfDay, format, startOfDay } from "date-fns";
+import { CalendarIcon, Loader2 } from "lucide-react";
+import type { DateRange } from "react-day-picker";
+import * as z from "zod";
 import { Button } from "~/components/ui/button";
+import { Calendar } from "~/components/ui/calendar";
 import {
 	Dialog,
 	DialogContent,
@@ -14,6 +17,11 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "~/components/ui/popover";
+import {
 	Select,
 	SelectContent,
 	SelectItem,
@@ -24,11 +32,44 @@ import { Textarea } from "~/components/ui/textarea";
 import { orpc } from "~/orpc/client";
 import { trialSchema } from "~/schemas/trial";
 
-const createTrialSchema = trialSchema.pick({
-	title: true,
-	description: true,
-});
-type CreateTrialValues = z.infer<typeof createTrialSchema>;
+const createTrialFormSchema = z
+	.object({
+		title: trialSchema.shape.title,
+		description: trialSchema.shape.description,
+		dateRange: z
+			.object({
+				from: z.date().optional(),
+				to: z.date().optional(),
+			})
+			.optional(),
+		locationIds: z.array(z.string()),
+	})
+	.superRefine((data, ctx) => {
+		if (
+			data.dateRange?.from === undefined ||
+			data.dateRange?.to === undefined
+		) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Select a timeframe (start and end date).",
+				path: ["dateRange"],
+			});
+		} else if (data.dateRange.to < data.dateRange.from) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "End date must be on or after the start date.",
+				path: ["dateRange"],
+			});
+		}
+		if (data.locationIds.length === 0) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Select at least one location.",
+				path: ["locationIds"],
+			});
+		}
+	});
+type CreateTrialValues = z.infer<typeof createTrialFormSchema>;
 
 const editTrialSchema = trialSchema.pick({
 	title: true,
@@ -45,7 +86,16 @@ export type TrialForModal = Pick<
 const createDefaultValues: CreateTrialValues = {
 	title: "",
 	description: "",
+	dateRange: undefined,
+	locationIds: [],
 };
+
+function timeframeButtonLabel(dr: DateRange | undefined): string {
+	if (!dr?.from || !dr?.to) {
+		return "Pick a period";
+	}
+	return `${format(dr.from, "PP")} — ${format(dr.to, "PP")}`;
+}
 
 type TrialModalProps = {
 	open: boolean;
@@ -67,7 +117,7 @@ export function TrialModal({
 				onOpenChange(next);
 			}}
 		>
-			<DialogContent className="max-h-[90vh] overflow-y-auto border-border/80 sm:max-w-lg">
+			<DialogContent className="max-h-[90vh] overflow-y-auto border-border/80 sm:max-w-2xl">
 				{open ? (
 					editingTrial ? (
 						<EditTrialForm
@@ -110,15 +160,49 @@ function CreateTrialForm({
 
 	const form = useForm({
 		defaultValues: createDefaultValues,
-		validators: { onSubmit: createTrialSchema },
+		validators: { onSubmit: createTrialFormSchema },
 		onSubmit: async ({ value }) => {
+			const dr = value.dateRange;
+			if (
+				value.locationIds.length === 0 ||
+				dr?.from === undefined ||
+				dr?.to === undefined
+			) {
+				return;
+			}
 			await createMutation.mutateAsync({
 				portalSlug,
 				title: value.title,
 				description: value.description,
+				startDate: startOfDay(dr.from),
+				endDate: endOfDay(dr.to),
+				locationIds: value.locationIds,
 			});
 			form.reset();
 		},
+	});
+
+	const dateRange = useStore(form.store, (s) => s.values.dateRange);
+	const timeframeComplete =
+		dateRange?.from !== undefined &&
+		dateRange?.to !== undefined &&
+		dateRange.to >= dateRange.from;
+
+	const statsInput =
+		timeframeComplete &&
+		dateRange?.from !== undefined &&
+		dateRange.to !== undefined
+			? {
+					startDate: startOfDay(dateRange.from),
+					endDate: endOfDay(dateRange.to),
+				}
+			: { startDate: new Date(0), endDate: new Date(0) };
+
+	const statsQuery = useQuery({
+		...orpc.locations.stats.queryOptions({
+			input: statsInput,
+		}),
+		enabled: timeframeComplete,
 	});
 
 	return (
@@ -175,6 +259,145 @@ function CreateTrialForm({
 								rows={4}
 								className="resize-y"
 							/>
+							{field.state.meta.errors.map((err) => (
+								<p
+									key={err?.message}
+									className="text-sm text-destructive"
+									role="alert"
+								>
+									{err?.message}
+								</p>
+							))}
+						</div>
+					)}
+				/>
+				<form.Field
+					name="dateRange"
+					children={(field) => (
+						<div className="space-y-2">
+							<Label>Trial timeframe</Label>
+							<Popover>
+								<PopoverTrigger asChild>
+									<Button
+										type="button"
+										className="w-full justify-start text-left font-normal data-[empty=true]:text-muted-foreground"
+										data-empty={
+											!field.state.value?.from || !field.state.value?.to
+										}
+										variant="outline"
+										id="trial-timeframe-trigger"
+										aria-invalid={field.state.meta.errors.length > 0}
+									>
+										<CalendarIcon
+											className="mr-2 size-4 shrink-0"
+											aria-hidden
+										/>
+										<span>
+											{timeframeButtonLabel(field.state.value as DateRange)}
+										</span>
+									</Button>
+								</PopoverTrigger>
+								<PopoverContent className="w-auto max-w-none p-0">
+									<Calendar
+										mode="range"
+										selected={field.state.value as DateRange | undefined}
+										numberOfMonths={2}
+										onSelect={(range) => {
+											field.handleChange(
+												range
+													? {
+															from: range.from,
+															to: range.to,
+														}
+													: undefined,
+											);
+											form.setFieldValue("locationIds", []);
+										}}
+									/>
+								</PopoverContent>
+							</Popover>
+							{field.state.meta.errors.map((err) => (
+								<p
+									key={err?.message}
+									className="text-sm text-destructive"
+									role="alert"
+								>
+									{err?.message}
+								</p>
+							))}
+						</div>
+					)}
+				/>
+				<form.Field
+					name="locationIds"
+					children={(field) => (
+						<div className="space-y-2">
+							<div className="flex items-center justify-between gap-2">
+								<Label>Locations included</Label>
+								{statsQuery.isFetching ? (
+									<span className="text-muted-foreground text-xs">
+										Refreshing counts…
+									</span>
+								) : null}
+							</div>
+							{timeframeComplete ? (
+								statsQuery.data ? (
+									<ul className="max-h-52 space-y-2 overflow-auto rounded-lg border bg-muted/35 p-2 text-sm shadow-inner dark:bg-muted/20">
+										{statsQuery.data.locations.map((loc) => {
+											const checked = field.state.value.includes(loc.id);
+											return (
+												<li key={loc.id}>
+													<label
+														htmlFor={`loc-${loc.id}`}
+														className="flex cursor-pointer items-start gap-3 rounded-md px-2 py-1.5 hover:bg-accent/60"
+													>
+														<input
+															type="checkbox"
+															id={`loc-${loc.id}`}
+															className="mt-1 size-4 shrink-0 accent-primary"
+															checked={checked}
+															onChange={(e) => {
+																const ids = field.state.value;
+																if (e.target.checked) {
+																	field.handleChange([...ids, loc.id]);
+																} else {
+																	field.handleChange(
+																		ids.filter((id) => id !== loc.id),
+																	);
+																}
+															}}
+														/>
+														<span className="min-w-0 flex-1">
+															<span className="font-medium">
+																{loc.locationName}
+															</span>
+															<span className="text-muted-foreground mx-1.5">
+																—
+															</span>
+															<span className="text-muted-foreground text-xs">
+																{loc.city}, {loc.state}
+															</span>
+															<span className="text-muted-foreground mt-1 block text-xs tabular-nums">
+																{loc.eventCount} event
+																{loc.eventCount === 1 ? "" : "s"}
+															</span>
+														</span>
+													</label>
+												</li>
+											);
+										})}
+									</ul>
+								) : statsQuery.isLoading ? (
+									<p className="text-muted-foreground text-sm">
+										Loading locations…
+									</p>
+								) : null
+							) : (
+								<p className="text-muted-foreground text-sm">
+									Choose a start and end date to load deployment locations and
+									event counts.
+								</p>
+							)}
 							{field.state.meta.errors.map((err) => (
 								<p
 									key={err?.message}
