@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+	integer,
+	primaryKey,
+	real,
+	sqliteTable,
+	text,
+} from "drizzle-orm/sqlite-core";
 import type { EventMeta } from "~/schemas/events";
 import type { StructuredAnnotation } from "~/schemas/structured-annotations";
 
@@ -71,6 +77,8 @@ export const trials = sqliteTable("trials", {
 	communityPortalId: text("community_portal_id")
 		.references(() => communityPortals.id)
 		.notNull(),
+	startDate: integer("start_date", { mode: "timestamp" }).notNull(),
+	endDate: integer("end_date", { mode: "timestamp" }).notNull(),
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.default(sql`(unixepoch())`)
 		.notNull(),
@@ -87,6 +95,15 @@ export const events = sqliteTable("events", {
 		.notNull(),
 	metadata: text("metadata", { mode: "json" }).$type<EventMeta>().notNull(),
 });
+
+export const trialEvents = sqliteTable(
+	"trial_events",
+	{
+		eventId: text("event_id").notNull(),
+		trialId: text("trial_id").notNull(),
+	},
+	(table) => [primaryKey({ columns: [table.eventId, table.trialId] })],
+);
 
 export const structuredAnnotations = sqliteTable("structured_annotations", {
 	id: text("id").primaryKey(),

@@ -25,7 +25,9 @@
     "db:migrate": "bun --bun drizzle-kit migrate",
     "db:push": "bun --bun drizzle-kit push",
     "db:pull": "bun --bun drizzle-kit pull",
-    "db:studio": "bun --bun drizzle-kit studio"
+    "db:studio": "bun --bun drizzle-kit studio",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:seed:reset": "tsx src/db/seed.ts --reset"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
@@ -64,6 +66,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
+    "@faker-js/faker": "^10.4.0",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "latest",
     "@testing-library/dom": "^10.4.1",
