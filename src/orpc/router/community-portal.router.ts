@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, or, sql } from "drizzle-orm";
 import * as z from "zod";
 import { db, table } from "~/db";
 import { PaginationUtils } from "~/lib/pagination-utils";
@@ -20,6 +20,7 @@ export const getById = base
 	.use(requireAuthenticated)
 	.route({
 		method: "GET",
+		summary: "Get a community portal by ID or slug",
 		path: "/community-portals/{+id}",
 	})
 	.input(z.object({ id: z.string().min(1) }))
@@ -33,7 +34,12 @@ export const getById = base
 		const row = await db
 			.select()
 			.from(table.communityPortals)
-			.where(eq(table.communityPortals.id, input.id))
+			.where(
+				or(
+					eq(table.communityPortals.id, input.id),
+					eq(table.communityPortals.slug, input.id),
+				),
+			)
 			.then((r) => r[0]);
 		if (!row) {
 			errors.NOT_FOUND();
@@ -91,29 +97,6 @@ export const create = base
 			throw new ORPCError("INTERNAL_SERVER_ERROR");
 		}
 		return row;
-	});
-
-/** Returns whether a community portal already uses this slug (for async validation before create). */
-export const slugExists = base
-	.use(requireAdmin)
-	.route({
-		method: "GET",
-		path: "/community-portals/check-slug",
-	})
-	.input(z.object({ slug: z.string().min(1) }))
-	.output(z.object({ exists: z.boolean() }))
-	.handler(async ({ input }) => {
-		const slug = input.slug.trim();
-		if (!slug) {
-			return { exists: false };
-		}
-		const row = await db
-			.select({ id: table.communityPortals.id })
-			.from(table.communityPortals)
-			.where(eq(table.communityPortals.slug, slug))
-			.limit(1)
-			.then((r) => r[0]);
-		return { exists: Boolean(row) };
 	});
 
 const updateInputSchema = z

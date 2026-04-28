@@ -174,13 +174,15 @@ function CreateCommunityPortalForm({ onClose }: { onClose: () => void }) {
 							if (signal.aborted) {
 								return;
 							}
-							const { exists } = await client.communityPortal.slugExists({
-								slug,
-							});
+							const existingPortal = await client.communityPortal
+								.getById({
+									id: slug,
+								})
+								.catch(() => null);
 							if (signal.aborted) {
 								return;
 							}
-							if (exists) {
+							if (existingPortal) {
 								return "This slug is already in use.";
 							}
 						},
