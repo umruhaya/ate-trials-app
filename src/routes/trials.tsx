@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "~/auth";
 import { Button } from "~/components/ui/button";
-import { requireRole } from "~/lib/session";
+import { requireAuthenticated } from "~/lib/session";
 
 export const Route = createFileRoute("/trials")({
 	component: RouteComponent,
-	beforeLoad: requireRole("admin"),
+	beforeLoad: requireAuthenticated("admin"),
 });
 
 function RouteComponent() {

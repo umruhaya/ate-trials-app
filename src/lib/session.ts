@@ -11,7 +11,7 @@ export function currentUserQueryOptions() {
 	});
 }
 
-export function requireRole(role: "admin" | "data-annotator") {
+export function requireAuthenticated(role?: "admin" | "data-annotator") {
 	return async ({
 		context,
 		location,
@@ -28,8 +28,9 @@ export function requireRole(role: "admin" | "data-annotator") {
 				search: { redirect: location.pathname },
 			});
 		}
-		if (user.role !== role) {
+		if (role && user.role !== role) {
 			throw redirect({ to: ROUTES.DEFAULT(user.role) });
 		}
+		return { user };
 	};
 }
