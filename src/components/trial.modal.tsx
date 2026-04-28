@@ -21,46 +21,45 @@ import {
 	SelectValue,
 } from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
-import { client, orpc } from "~/orpc/client";
-import { communityPortalSchema } from "~/schemas/community-portal";
+import { orpc } from "~/orpc/client";
+import { trialSchema } from "~/schemas/trial";
 
-const createCommunityPortalSchema = communityPortalSchema.pick({
-	name: true,
-	slug: true,
+const createTrialSchema = trialSchema.pick({
+	title: true,
 	description: true,
 });
-type CreateCommunityPortalValues = z.infer<typeof createCommunityPortalSchema>;
+type CreateTrialValues = z.infer<typeof createTrialSchema>;
 
-const editCommunityPortalSchema = communityPortalSchema.pick({
-	name: true,
+const editTrialSchema = trialSchema.pick({
+	title: true,
 	description: true,
 	isActive: true,
 });
-type EditCommunityPortalValues = z.infer<typeof editCommunityPortalSchema>;
+type EditTrialValues = z.infer<typeof editTrialSchema>;
 
-export type CommunityPortalForModal = Pick<
-	z.infer<typeof communityPortalSchema>,
-	"id" | "name" | "slug" | "description" | "isActive"
+export type TrialForModal = Pick<
+	z.infer<typeof trialSchema>,
+	"id" | "title" | "description" | "isActive"
 >;
 
-const createDefaultValues: CreateCommunityPortalValues = {
-	name: "",
-	slug: "",
+const createDefaultValues: CreateTrialValues = {
+	title: "",
 	description: "",
 };
 
-type CommunityPortalModalProps = {
+type TrialModalProps = {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	/** When set, the modal edits this portal (name, description, active). Slug is shown read-only. */
-	editingPortal?: CommunityPortalForModal | null;
+	portalSlug: string;
+	editingTrial?: TrialForModal | null;
 };
 
-export function CommunityPortalModal({
+export function TrialModal({
 	open,
 	onOpenChange,
-	editingPortal = null,
-}: CommunityPortalModalProps) {
+	portalSlug,
+	editingTrial = null,
+}: TrialModalProps) {
 	return (
 		<Dialog
 			open={open}
@@ -70,15 +69,16 @@ export function CommunityPortalModal({
 		>
 			<DialogContent className="max-h-[90vh] overflow-y-auto border-border/80 sm:max-w-lg">
 				{open ? (
-					editingPortal ? (
-						<EditCommunityPortalForm
-							key={editingPortal.id}
-							portal={editingPortal}
+					editingTrial ? (
+						<EditTrialForm
+							key={editingTrial.id}
+							trial={editingTrial}
 							onClose={() => onOpenChange(false)}
 						/>
 					) : (
-						<CreateCommunityPortalForm
+						<CreateTrialForm
 							key="create"
+							portalSlug={portalSlug}
 							onClose={() => onOpenChange(false)}
 						/>
 					)
@@ -88,14 +88,20 @@ export function CommunityPortalModal({
 	);
 }
 
-function CreateCommunityPortalForm({ onClose }: { onClose: () => void }) {
+function CreateTrialForm({
+	portalSlug,
+	onClose,
+}: {
+	portalSlug: string;
+	onClose: () => void;
+}) {
 	const queryClient = useQueryClient();
 
 	const createMutation = useMutation(
-		orpc.communityPortal.create.mutationOptions({
+		orpc.trials.create.mutationOptions({
 			onSuccess: async () => {
 				await queryClient.invalidateQueries({
-					queryKey: orpc.communityPortal.list.key({ type: "query" }),
+					queryKey: orpc.trials.list.key({ type: "query" }),
 				});
 				onClose();
 			},
@@ -104,11 +110,11 @@ function CreateCommunityPortalForm({ onClose }: { onClose: () => void }) {
 
 	const form = useForm({
 		defaultValues: createDefaultValues,
-		validators: { onSubmit: createCommunityPortalSchema },
+		validators: { onSubmit: createTrialSchema },
 		onSubmit: async ({ value }) => {
 			await createMutation.mutateAsync({
-				name: value.name,
-				slug: value.slug,
+				portalSlug,
+				title: value.title,
 				description: value.description,
 			});
 			form.reset();
@@ -124,25 +130,24 @@ function CreateCommunityPortalForm({ onClose }: { onClose: () => void }) {
 		>
 			<DialogHeader>
 				<DialogTitle className="display-title text-(--sea-ink)">
-					New community portal
+					New trial
 				</DialogTitle>
 				<DialogDescription>
-					Add a portal visitors can open. Slug appears in the URL and must stay
-					unique.
+					Add a trial for this community portal.
 				</DialogDescription>
 			</DialogHeader>
 
 			<div className="grid gap-4 py-4">
 				<form.Field
-					name="name"
+					name="title"
 					children={(field) => (
 						<div className="space-y-2">
-							<Label htmlFor={`${field.name}-modal`}>Name</Label>
+							<Label htmlFor={`${field.name}-modal`}>Title</Label>
 							<Input
 								id={`${field.name}-modal`}
 								value={field.state.value}
 								onChange={(e) => field.handleChange(e.target.value)}
-								placeholder="e.g. North region"
+								placeholder="e.g. Q2 observation study"
 								autoComplete="off"
 							/>
 							{field.state.meta.errors.map((err) => (
@@ -158,66 +163,6 @@ function CreateCommunityPortalForm({ onClose }: { onClose: () => void }) {
 					)}
 				/>
 				<form.Field
-					name="slug"
-					asyncDebounceMs={500}
-					validators={{
-						onChangeAsync: async ({ value, signal }) => {
-							const slug = value.trim();
-							if (!slug) {
-								return;
-							}
-							const shape =
-								createCommunityPortalSchema.shape.slug.safeParse(slug);
-							if (!shape.success) {
-								return;
-							}
-							if (signal.aborted) {
-								return;
-							}
-							const existingPortal = await client.communityPortal
-								.getById({
-									id: slug,
-								})
-								.catch(() => null);
-							if (signal.aborted) {
-								return;
-							}
-							if (existingPortal) {
-								return "This slug is already in use.";
-							}
-						},
-					}}
-					children={(field) => (
-						<div className="space-y-2">
-							<Label htmlFor={`${field.name}-modal`}>Slug</Label>
-							<Input
-								id={`${field.name}-modal`}
-								value={field.state.value}
-								onChange={(e) =>
-									field.handleChange(
-										e.target.value.toLowerCase().replace(/\s+/g, "-"),
-									)
-								}
-								placeholder="e.g. north-region"
-								autoComplete="off"
-							/>
-							{field.state.meta.errors.map((err) => {
-								const slugErrText =
-									typeof err === "string" ? err : (err?.message ?? "");
-								return (
-									<p
-										key={`slug-error-${slugErrText}`}
-										className="text-sm text-destructive"
-										role="alert"
-									>
-										{slugErrText}
-									</p>
-								);
-							})}
-						</div>
-					)}
-				/>
-				<form.Field
 					name="description"
 					children={(field) => (
 						<div className="space-y-2">
@@ -226,7 +171,7 @@ function CreateCommunityPortalForm({ onClose }: { onClose: () => void }) {
 								id={`${field.name}-modal`}
 								value={field.state.value}
 								onChange={(e) => field.handleChange(e.target.value)}
-								placeholder="Short summary for members"
+								placeholder="Summary for participants"
 								rows={4}
 								className="resize-y"
 							/>
@@ -248,7 +193,7 @@ function CreateCommunityPortalForm({ onClose }: { onClose: () => void }) {
 				<p className="mb-4 text-sm text-destructive" role="alert">
 					{createMutation.error instanceof Error
 						? createMutation.error.message
-						: "Could not create portal."}
+						: "Could not create trial."}
 				</p>
 			) : null}
 
@@ -270,7 +215,7 @@ function CreateCommunityPortalForm({ onClose }: { onClose: () => void }) {
 						{createMutation.isPending ? (
 							<Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
 						) : null}
-						Create portal
+						Create trial
 					</Button>
 				</div>
 			</DialogFooter>
@@ -278,20 +223,20 @@ function CreateCommunityPortalForm({ onClose }: { onClose: () => void }) {
 	);
 }
 
-function EditCommunityPortalForm({
-	portal,
+function EditTrialForm({
+	trial,
 	onClose,
 }: {
-	portal: CommunityPortalForModal;
+	trial: TrialForModal;
 	onClose: () => void;
 }) {
 	const queryClient = useQueryClient();
 
 	const updateMutation = useMutation(
-		orpc.communityPortal.update.mutationOptions({
+		orpc.trials.update.mutationOptions({
 			onSuccess: async () => {
 				await queryClient.invalidateQueries({
-					queryKey: orpc.communityPortal.list.key({ type: "query" }),
+					queryKey: orpc.trials.list.key({ type: "query" }),
 				});
 				onClose();
 			},
@@ -300,15 +245,15 @@ function EditCommunityPortalForm({
 
 	const form = useForm({
 		defaultValues: {
-			name: portal.name,
-			description: portal.description,
-			isActive: portal.isActive,
-		} satisfies EditCommunityPortalValues,
-		validators: { onSubmit: editCommunityPortalSchema },
+			title: trial.title,
+			description: trial.description,
+			isActive: trial.isActive,
+		} satisfies EditTrialValues,
+		validators: { onSubmit: editTrialSchema },
 		onSubmit: async ({ value }) => {
 			await updateMutation.mutateAsync({
-				id: portal.id,
-				name: value.name,
+				id: trial.id,
+				title: value.title,
 				description: value.description,
 				isActive: value.isActive,
 			});
@@ -325,31 +270,24 @@ function EditCommunityPortalForm({
 		>
 			<DialogHeader>
 				<DialogTitle className="display-title text-(--sea-ink)">
-					Edit community portal
+					Edit trial
 				</DialogTitle>
 				<DialogDescription>
-					Update how this portal appears and whether it stays visible. The URL
-					slug cannot be changed here.
+					Update the trial title, description, and visibility.
 				</DialogDescription>
 			</DialogHeader>
 
 			<div className="grid gap-4 py-4">
-				<div className="space-y-2">
-					<Label>Slug</Label>
-					<p className="rounded-md border border-border/80 bg-muted/30 px-3 py-2 font-mono text-sm text-muted-foreground">
-						/{portal.slug}
-					</p>
-				</div>
 				<form.Field
-					name="name"
+					name="title"
 					children={(field) => (
 						<div className="space-y-2">
-							<Label htmlFor={`${field.name}-edit-modal`}>Name</Label>
+							<Label htmlFor={`${field.name}-edit-modal`}>Title</Label>
 							<Input
 								id={`${field.name}-edit-modal`}
 								value={field.state.value}
 								onChange={(e) => field.handleChange(e.target.value)}
-								placeholder="e.g. North region"
+								placeholder="e.g. Q2 observation study"
 								autoComplete="off"
 							/>
 							{field.state.meta.errors.map((err) => (
@@ -373,7 +311,7 @@ function EditCommunityPortalForm({
 								id={`${field.name}-edit-modal`}
 								value={field.state.value}
 								onChange={(e) => field.handleChange(e.target.value)}
-								placeholder="Short summary for members"
+								placeholder="Summary for participants"
 								rows={4}
 								className="resize-y"
 							/>
@@ -393,12 +331,12 @@ function EditCommunityPortalForm({
 					name="isActive"
 					children={(field) => (
 						<div className="space-y-2">
-							<Label htmlFor="portal-status-edit">Status</Label>
+							<Label htmlFor="trial-status-edit">Status</Label>
 							<Select
 								value={field.state.value ? "active" : "inactive"}
 								onValueChange={(v) => field.handleChange(v === "active")}
 							>
-								<SelectTrigger id="portal-status-edit">
+								<SelectTrigger id="trial-status-edit">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
@@ -424,7 +362,7 @@ function EditCommunityPortalForm({
 				<p className="mb-4 text-sm text-destructive" role="alert">
 					{updateMutation.error instanceof Error
 						? updateMutation.error.message
-						: "Could not update portal."}
+						: "Could not update trial."}
 				</p>
 			) : null}
 
