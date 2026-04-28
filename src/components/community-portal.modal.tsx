@@ -1,5 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 import type { z } from "zod";
 import { Button } from "~/components/ui/button";
 import {
@@ -258,8 +259,15 @@ function CreateCommunityPortalForm({ onClose }: { onClose: () => void }) {
 				>
 					Cancel
 				</Button>
-				<Button type="submit" disabled={createMutation.isPending}>
-					{createMutation.isPending ? "Creating…" : "Create portal"}
+				<Button
+					type="submit"
+					className="gap-2"
+					disabled={createMutation.isPending}
+				>
+					{createMutation.isPending ? (
+						<Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+					) : null}
+					Create portal
 				</Button>
 			</DialogFooter>
 		</form>
@@ -425,8 +433,15 @@ function EditCommunityPortalForm({
 				>
 					Cancel
 				</Button>
-				<Button type="submit" disabled={updateMutation.isPending}>
-					{updateMutation.isPending ? "Saving…" : "Save changes"}
+				<Button
+					type="submit"
+					className="gap-2"
+					disabled={updateMutation.isPending}
+				>
+					{updateMutation.isPending ? (
+						<Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+					) : null}
+					Save changes
 				</Button>
 			</DialogFooter>
 		</form>
