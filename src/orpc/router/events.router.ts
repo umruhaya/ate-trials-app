@@ -1,4 +1,13 @@
-import { and, count, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
+import {
+	and,
+	count,
+	desc,
+	eq,
+	inArray,
+	isNull,
+	type SQL,
+	sql,
+} from "drizzle-orm";
 import * as z from "zod";
 import { db, table } from "~/db";
 import { PaginationUtils } from "~/lib/pagination-utils";
@@ -10,8 +19,15 @@ import {
 	eventPaginatedSchema,
 	eventRecordSchema,
 } from "~/schemas/event-record";
+import { StructuredAnnotationSchema } from "~/schemas/structured-annotations";
 
 const requireAuthenticated = createAuthMiddleware({ role: "all" });
+
+const annotateInputSchema = z.object({
+	trialId: z.string().min(1),
+	eventId: z.string().min(1),
+	annotation: StructuredAnnotationSchema,
+});
 
 function eventsWhereClause(filters: {
 	trialId?: string;
@@ -156,4 +172,122 @@ export const list = base
 			pageSize: input.pageSize,
 			currentPage: input.page,
 		});
+	});
+
+export const unprocessedForTrial = base
+	.use(requireAuthenticated)
+	.route({
+		method: "GET",
+		path: "/trials/{+trialId}/events/unprocessed",
+	})
+	.input(
+		z.object({
+			trialId: z.string().min(1),
+			page: eventFiltersSchema.shape.page,
+			pageSize: eventFiltersSchema.shape.pageSize,
+		}),
+	)
+	.output(eventPaginatedSchema)
+	.handler(async ({ input }) => {
+		const whereClause = and(
+			eq(table.trialEvents.trialId, input.trialId),
+			isNull(table.structuredAnnotations.id),
+		);
+
+		const [{ totalCount }] = await db
+			.select({ totalCount: count() })
+			.from(table.trialEvents)
+			.innerJoin(table.events, eq(table.trialEvents.eventId, table.events.id))
+			.leftJoin(
+				table.structuredAnnotations,
+				eq(table.structuredAnnotations.eventId, table.events.id),
+			)
+			.where(whereClause);
+
+		const { offset, limit } = PaginationUtils.calculateLimitOffset(input);
+		const rows = await db
+			.select({
+				id: table.events.id,
+				externalBlobRef: table.events.externalBlobRef,
+				timestamp: table.events.timestamp,
+				deploymentId: table.events.deploymentId,
+				metadata: table.events.metadata,
+			})
+			.from(table.trialEvents)
+			.innerJoin(table.events, eq(table.trialEvents.eventId, table.events.id))
+			.leftJoin(
+				table.structuredAnnotations,
+				eq(table.structuredAnnotations.eventId, table.events.id),
+			)
+			.where(whereClause)
+			.orderBy(desc(table.events.timestamp))
+			.limit(limit)
+			.offset(offset);
+
+		return PaginationUtils.createPaginated({
+			items: rows.map((row) => ({
+				...eventRecordSchema.parse(row),
+				processed: false,
+			})),
+			totalCount,
+			pageSize: input.pageSize,
+			currentPage: input.page,
+		});
+	});
+
+export const annotate = base
+	.use(requireAuthenticated)
+	.route({
+		method: "POST",
+		path: "/events/annotate",
+	})
+	.input(annotateInputSchema)
+	.output(z.object({ id: z.string(), eventId: z.string() }))
+	.errors({
+		NOT_FOUND: {
+			message: "Event not found in this trial",
+		},
+		CONFLICT: {
+			status: 409,
+			message: "Event already has a structured annotation",
+		},
+	})
+	.handler(async ({ context, input, errors }) => {
+		const trialEvent = await db
+			.select({ eventId: table.trialEvents.eventId })
+			.from(table.trialEvents)
+			.where(
+				and(
+					eq(table.trialEvents.trialId, input.trialId),
+					eq(table.trialEvents.eventId, input.eventId),
+				),
+			)
+			.limit(1)
+			.then((r) => r[0]);
+
+		if (!trialEvent) {
+			errors.NOT_FOUND();
+		}
+
+		const existingAnnotation = await db
+			.select({ id: table.structuredAnnotations.id })
+			.from(table.structuredAnnotations)
+			.where(eq(table.structuredAnnotations.eventId, input.eventId))
+			.limit(1)
+			.then((r) => r[0]);
+
+		if (existingAnnotation) {
+			errors.CONFLICT();
+		}
+
+		const id = crypto.randomUUID();
+		await db.insert(table.structuredAnnotations).values({
+			id,
+			eventId: input.eventId,
+			isViolation: input.annotation.violation.type !== "no-violation",
+			annotation: input.annotation,
+			createdBy: context.user.username,
+		});
+
+		return { id, eventId: input.eventId };
 	});

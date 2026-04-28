@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as EventsRouteImport } from './routes/events'
 import { Route as CommunityPortalsRouteImport } from './routes/community-portals'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CPortalSlugRouteImport } from './routes/c.$portalSlug'
@@ -20,11 +19,6 @@ import { Route as CPortalSlugTrialsIndexRouteImport } from './routes/c.$portalSl
 import { Route as CPortalSlugTrialsTriallSlugEventsRouteImport } from './routes/c.$portalSlug.trials.$triallSlug.events'
 import { Route as CPortalSlugTrialsTriallSlugDashboardRouteImport } from './routes/c.$portalSlug.trials.$triallSlug.dashboard'
 
-const EventsRoute = EventsRouteImport.update({
-  id: '/events',
-  path: '/events',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CommunityPortalsRoute = CommunityPortalsRouteImport.update({
   id: '/community-portals',
   path: '/community-portals',
@@ -76,7 +70,6 @@ const CPortalSlugTrialsTriallSlugDashboardRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/community-portals': typeof CommunityPortalsRoute
-  '/events': typeof EventsRoute
   '/api/$': typeof ApiSplatRoute
   '/c/$portalSlug': typeof CPortalSlugRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
@@ -88,7 +81,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/community-portals': typeof CommunityPortalsRoute
-  '/events': typeof EventsRoute
   '/api/$': typeof ApiSplatRoute
   '/c/$portalSlug': typeof CPortalSlugRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
@@ -100,7 +92,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/community-portals': typeof CommunityPortalsRoute
-  '/events': typeof EventsRoute
   '/api/$': typeof ApiSplatRoute
   '/c/$portalSlug': typeof CPortalSlugRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
@@ -114,7 +105,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/community-portals'
-    | '/events'
     | '/api/$'
     | '/c/$portalSlug'
     | '/api/rpc/$'
@@ -126,7 +116,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/community-portals'
-    | '/events'
     | '/api/$'
     | '/c/$portalSlug'
     | '/api/rpc/$'
@@ -137,7 +126,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/community-portals'
-    | '/events'
     | '/api/$'
     | '/c/$portalSlug'
     | '/api/rpc/$'
@@ -150,7 +138,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CommunityPortalsRoute: typeof CommunityPortalsRoute
-  EventsRoute: typeof EventsRoute
   ApiSplatRoute: typeof ApiSplatRoute
   CPortalSlugRoute: typeof CPortalSlugRouteWithChildren
   ApiRpcSplatRoute: typeof ApiRpcSplatRoute
@@ -158,13 +145,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/events': {
-      id: '/events'
-      path: '/events'
-      fullPath: '/events'
-      preLoaderRoute: typeof EventsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/community-portals': {
       id: '/community-portals'
       path: '/community-portals'
@@ -263,7 +243,6 @@ const CPortalSlugRouteWithChildren = CPortalSlugRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CommunityPortalsRoute: CommunityPortalsRoute,
-  EventsRoute: EventsRoute,
   ApiSplatRoute: ApiSplatRoute,
   CPortalSlugRoute: CPortalSlugRouteWithChildren,
   ApiRpcSplatRoute: ApiRpcSplatRoute,
