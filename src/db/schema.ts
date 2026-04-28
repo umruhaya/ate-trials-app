@@ -1,11 +1,5 @@
 import { sql } from "drizzle-orm";
-import {
-	blob,
-	integer,
-	real,
-	sqliteTable,
-	text,
-} from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import type { EventMeta } from "~/schemas/events";
 import type { StructuredAnnotation } from "~/schemas/structured-annotations";
 
@@ -21,7 +15,6 @@ export const users = sqliteTable("users", {
 export const communityPortals = sqliteTable("community_portals", {
 	id: text("id").primaryKey(),
 	name: text().notNull(),
-	logo: blob({ mode: "buffer" }),
 	slug: text().notNull().unique(),
 	description: text().notNull(),
 	createdBy: text("created_by")
