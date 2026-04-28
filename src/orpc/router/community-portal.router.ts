@@ -93,6 +93,29 @@ export const create = base
 		return row;
 	});
 
+/** Returns whether a community portal already uses this slug (for async validation before create). */
+export const slugExists = base
+	.use(requireAdmin)
+	.route({
+		method: "GET",
+		path: "/community-portals/check-slug",
+	})
+	.input(z.object({ slug: z.string().min(1) }))
+	.output(z.object({ exists: z.boolean() }))
+	.handler(async ({ input }) => {
+		const slug = input.slug.trim();
+		if (!slug) {
+			return { exists: false };
+		}
+		const row = await db
+			.select({ id: table.communityPortals.id })
+			.from(table.communityPortals)
+			.where(eq(table.communityPortals.slug, slug))
+			.limit(1)
+			.then((r) => r[0]);
+		return { exists: Boolean(row) };
+	});
+
 const updateInputSchema = z
 	.object({
 		id: z.string().min(1),
@@ -120,22 +143,16 @@ export const update = base
 	.output(communityPortalSchema)
 	.handler(async ({ input }) => {
 		const { id, name, slug, description, isActive } = input;
-		// const patch: Partial<{
-		// 	name: string;
-		// 	slug: string;
-		// 	description: string;
-		// 	isActive: boolean;
-		// }> = {};
-		// if (name !== undefined) patch.name = name;
-		// if (slug !== undefined) patch.slug = slug;
-		// if (description !== undefined) patch.description = description;
-		// if (isActive !== undefined) patch.isActive = isActive;
-		const patch = {
-			name,
-			slug,
-			description,
-			isActive,
-		};
+		const patch: Partial<{
+			name: string;
+			slug: string;
+			description: string;
+			isActive: boolean;
+		}> = {};
+		if (name !== undefined) patch.name = name;
+		if (slug !== undefined) patch.slug = slug;
+		if (description !== undefined) patch.description = description;
+		if (isActive !== undefined) patch.isActive = isActive;
 
 		await db
 			.update(table.communityPortals)

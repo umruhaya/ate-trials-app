@@ -268,7 +268,6 @@ pre code {
 }
 
 .feature-card:hover {
-  transform: translateY(-2px);
   border-color: color-mix(in oklab, var(--lagoon-deep) 35%, var(--line));
 }
 
@@ -325,6 +324,7 @@ a {
     opacity: 0;
     transform: translateY(12px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -340,6 +340,7 @@ a {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     background-color: var(--background);
     color: var(--foreground);

@@ -11,9 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TrialsRouteImport } from './routes/trials'
 import { Route as EventsRouteImport } from './routes/events'
+import { Route as CommunityPortalsRouteImport } from './routes/community-portals'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CPortalSlugRouteImport } from './routes/c.$portalSlug'
 import { Route as ApiSplatRouteImport } from './routes/api.$'
+import { Route as CPortalSlugTrialsRouteImport } from './routes/c.$portalSlug.trials'
 import { Route as ApiRpcSplatRouteImport } from './routes/api.rpc.$'
+import { Route as CPortalSlugTrialsTriallSlugRouteImport } from './routes/c.$portalSlug.trials.$triallSlug'
 
 const TrialsRoute = TrialsRouteImport.update({
   id: '/trials',
@@ -25,9 +29,19 @@ const EventsRoute = EventsRouteImport.update({
   path: '/events',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommunityPortalsRoute = CommunityPortalsRouteImport.update({
+  id: '/community-portals',
+  path: '/community-portals',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CPortalSlugRoute = CPortalSlugRouteImport.update({
+  id: '/c/$portalSlug',
+  path: '/c/$portalSlug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSplatRoute = ApiSplatRouteImport.update({
@@ -35,47 +49,100 @@ const ApiSplatRoute = ApiSplatRouteImport.update({
   path: '/api/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CPortalSlugTrialsRoute = CPortalSlugTrialsRouteImport.update({
+  id: '/trials',
+  path: '/trials',
+  getParentRoute: () => CPortalSlugRoute,
+} as any)
 const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
   id: '/api/rpc/$',
   path: '/api/rpc/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CPortalSlugTrialsTriallSlugRoute =
+  CPortalSlugTrialsTriallSlugRouteImport.update({
+    id: '/$triallSlug',
+    path: '/$triallSlug',
+    getParentRoute: () => CPortalSlugTrialsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/community-portals': typeof CommunityPortalsRoute
   '/events': typeof EventsRoute
   '/trials': typeof TrialsRoute
   '/api/$': typeof ApiSplatRoute
+  '/c/$portalSlug': typeof CPortalSlugRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/c/$portalSlug/trials': typeof CPortalSlugTrialsRouteWithChildren
+  '/c/$portalSlug/trials/$triallSlug': typeof CPortalSlugTrialsTriallSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/community-portals': typeof CommunityPortalsRoute
   '/events': typeof EventsRoute
   '/trials': typeof TrialsRoute
   '/api/$': typeof ApiSplatRoute
+  '/c/$portalSlug': typeof CPortalSlugRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/c/$portalSlug/trials': typeof CPortalSlugTrialsRouteWithChildren
+  '/c/$portalSlug/trials/$triallSlug': typeof CPortalSlugTrialsTriallSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/community-portals': typeof CommunityPortalsRoute
   '/events': typeof EventsRoute
   '/trials': typeof TrialsRoute
   '/api/$': typeof ApiSplatRoute
+  '/c/$portalSlug': typeof CPortalSlugRouteWithChildren
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/c/$portalSlug/trials': typeof CPortalSlugTrialsRouteWithChildren
+  '/c/$portalSlug/trials/$triallSlug': typeof CPortalSlugTrialsTriallSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/events' | '/trials' | '/api/$' | '/api/rpc/$'
+  fullPaths:
+    | '/'
+    | '/community-portals'
+    | '/events'
+    | '/trials'
+    | '/api/$'
+    | '/c/$portalSlug'
+    | '/api/rpc/$'
+    | '/c/$portalSlug/trials'
+    | '/c/$portalSlug/trials/$triallSlug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/events' | '/trials' | '/api/$' | '/api/rpc/$'
-  id: '__root__' | '/' | '/events' | '/trials' | '/api/$' | '/api/rpc/$'
+  to:
+    | '/'
+    | '/community-portals'
+    | '/events'
+    | '/trials'
+    | '/api/$'
+    | '/c/$portalSlug'
+    | '/api/rpc/$'
+    | '/c/$portalSlug/trials'
+    | '/c/$portalSlug/trials/$triallSlug'
+  id:
+    | '__root__'
+    | '/'
+    | '/community-portals'
+    | '/events'
+    | '/trials'
+    | '/api/$'
+    | '/c/$portalSlug'
+    | '/api/rpc/$'
+    | '/c/$portalSlug/trials'
+    | '/c/$portalSlug/trials/$triallSlug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CommunityPortalsRoute: typeof CommunityPortalsRoute
   EventsRoute: typeof EventsRoute
   TrialsRoute: typeof TrialsRoute
   ApiSplatRoute: typeof ApiSplatRoute
+  CPortalSlugRoute: typeof CPortalSlugRouteWithChildren
   ApiRpcSplatRoute: typeof ApiRpcSplatRoute
 }
 
@@ -95,11 +162,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/community-portals': {
+      id: '/community-portals'
+      path: '/community-portals'
+      fullPath: '/community-portals'
+      preLoaderRoute: typeof CommunityPortalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/c/$portalSlug': {
+      id: '/c/$portalSlug'
+      path: '/c/$portalSlug'
+      fullPath: '/c/$portalSlug'
+      preLoaderRoute: typeof CPortalSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/$': {
@@ -109,6 +190,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/c/$portalSlug/trials': {
+      id: '/c/$portalSlug/trials'
+      path: '/trials'
+      fullPath: '/c/$portalSlug/trials'
+      preLoaderRoute: typeof CPortalSlugTrialsRouteImport
+      parentRoute: typeof CPortalSlugRoute
+    }
     '/api/rpc/$': {
       id: '/api/rpc/$'
       path: '/api/rpc/$'
@@ -116,14 +204,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRpcSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/c/$portalSlug/trials/$triallSlug': {
+      id: '/c/$portalSlug/trials/$triallSlug'
+      path: '/$triallSlug'
+      fullPath: '/c/$portalSlug/trials/$triallSlug'
+      preLoaderRoute: typeof CPortalSlugTrialsTriallSlugRouteImport
+      parentRoute: typeof CPortalSlugTrialsRoute
+    }
   }
 }
 
+interface CPortalSlugTrialsRouteChildren {
+  CPortalSlugTrialsTriallSlugRoute: typeof CPortalSlugTrialsTriallSlugRoute
+}
+
+const CPortalSlugTrialsRouteChildren: CPortalSlugTrialsRouteChildren = {
+  CPortalSlugTrialsTriallSlugRoute: CPortalSlugTrialsTriallSlugRoute,
+}
+
+const CPortalSlugTrialsRouteWithChildren =
+  CPortalSlugTrialsRoute._addFileChildren(CPortalSlugTrialsRouteChildren)
+
+interface CPortalSlugRouteChildren {
+  CPortalSlugTrialsRoute: typeof CPortalSlugTrialsRouteWithChildren
+}
+
+const CPortalSlugRouteChildren: CPortalSlugRouteChildren = {
+  CPortalSlugTrialsRoute: CPortalSlugTrialsRouteWithChildren,
+}
+
+const CPortalSlugRouteWithChildren = CPortalSlugRoute._addFileChildren(
+  CPortalSlugRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CommunityPortalsRoute: CommunityPortalsRoute,
   EventsRoute: EventsRoute,
   TrialsRoute: TrialsRoute,
   ApiSplatRoute: ApiSplatRoute,
+  CPortalSlugRoute: CPortalSlugRouteWithChildren,
   ApiRpcSplatRoute: ApiRpcSplatRoute,
 }
 export const routeTree = rootRouteImport
