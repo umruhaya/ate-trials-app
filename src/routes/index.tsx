@@ -57,6 +57,7 @@ function Home() {
 
 	const loginForm = useForm({
 		defaultValues: defaultLoginFormValues,
+    validators: { onSubmit: loginFormSchema },
 		onSubmit: async ({ value }) => {
 			await auth.login(value.username, value.role);
 			const next = redirectAfterLogin ?? ROUTES.DEFAULT(value.role);
