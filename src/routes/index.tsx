@@ -66,7 +66,7 @@ function Home() {
 	});
 
 	return (
-		<div className="page-wrap flex min-h-screen flex-col items-center justify-center py-12">
+		<div className="page-wrap flex min-h-full flex-col items-center justify-center py-12">
 			<Card className="island-shell w-full max-w-md rise-in">
 				<CardHeader className="text-center">
 					<p className="island-kicker mb-1">Trials app</p>

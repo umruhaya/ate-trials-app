@@ -144,7 +144,7 @@ function RouteComponent() {
 	}).some(Boolean);
 
 	return (
-		<div className="page-wrap min-h-screen py-10">
+		<div className="page-wrap py-10">
 			<div className="mx-auto flex max-w-6xl flex-col gap-8 px-4">
 				<div className="border-b border-border/60 pb-6">
 					<div>

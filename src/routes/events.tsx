@@ -11,7 +11,7 @@ function RouteComponent() {
 	const { user } = useAuth();
 
 	return (
-		<div className="page-wrap flex min-h-screen flex-col items-center justify-center gap-6 py-12">
+		<div className="page-wrap flex min-h-full flex-col items-center justify-center gap-6 py-12">
 			<div className="flex w-full max-w-lg items-center justify-start">
 				<h1 className="text-2xl font-semibold">Events</h1>
 			</div>

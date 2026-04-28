@@ -33,8 +33,8 @@ export function UserAppHeader() {
 	return (
 		<header
 			className={cn(
-				"sticky top-0 z-50 border-b border-border/80 bg-background/90 backdrop-blur-md",
-				"supports-backdrop-filter:bg-background/75",
+				"shrink-0 border-b border-border/80 bg-background/95 backdrop-blur-sm",
+				"supports-backdrop-filter:bg-background/90",
 			)}
 		>
 			<div className="mx-auto flex h-14 max-w-[1400px] items-center justify-end px-4 sm:px-6">

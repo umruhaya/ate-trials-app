@@ -43,21 +43,27 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootLayout() {
 	return (
-		<div className="flex min-h-screen flex-col">
+		<>
 			<UserAppHeader />
-			<Outlet />
-		</div>
+			<main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
+				<Outlet />
+			</main>
+		</>
 	);
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en">
+		<html lang="en" className="h-dvh">
 			<head>
 				<HeadContent />
 			</head>
-			<body>
-				<AuthProvider>{children}</AuthProvider>
+			<body className="flex h-full min-h-0 flex-col overflow-hidden">
+				<AuthProvider>
+					<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+						{children}
+					</div>
+				</AuthProvider>
 				<TanStackDevtools
 					config={{
 						position: "bottom-right",
