@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { format } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 import {
 	Bar,
@@ -22,6 +23,17 @@ import {
 } from "~/components/ui/card";
 import { requireAuthenticated } from "~/lib/session";
 import { orpc } from "~/orpc/client";
+
+function pluralize(count: number, singular: string, plural = `${singular}s`) {
+	return `${count.toLocaleString()} ${count === 1 ? singular : plural}`;
+}
+
+function humanizeToken(value: string) {
+	return value
+		.split("-")
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(" ");
+}
 
 export const Route = createFileRoute(
 	"/c/$portalSlug/trials/$triallSlug/dashboard",
@@ -72,6 +84,7 @@ function RouteComponent() {
 				</div>
 				<div className="h-[320px] animate-pulse rounded-xl border border-border/60 bg-muted/30" />
 				<div className="h-[320px] animate-pulse rounded-xl border border-border/60 bg-muted/30" />
+				<div className="h-[320px] animate-pulse rounded-xl border border-border/60 bg-muted/30" />
 			</div>
 		);
 	}
@@ -104,6 +117,20 @@ function RouteComponent() {
 		verifiedViolations: p.verifiedViolations,
 	}));
 	const barData = d.threatMatrix;
+	const trialStart = new Date(d.metadata.startDate);
+	const trialEnd = new Date(d.metadata.endDate);
+	const trialDateRange = `${format(trialStart, "PP")} to ${format(
+		trialEnd,
+		"PP",
+	)}`;
+	const violationDistributionData = d.violationDistribution.map((p) => ({
+		...p,
+		label: humanizeToken(p.violationType),
+	}));
+	const zoneDistributionData = d.zoneDistribution.map((p) => ({
+		...p,
+		label: humanizeToken(p.zoneType),
+	}));
 
 	return (
 		<div className="flex flex-col gap-8">
@@ -130,6 +157,60 @@ function RouteComponent() {
 				</Link>
 			</header>
 
+			<section aria-labelledby="metadata-heading">
+				<h2 id="metadata-heading" className="sr-only">
+					Trial metadata
+				</h2>
+				<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+					<Card className="feature-card border-border/80">
+						<CardHeader className="pb-2">
+							<CardDescription>Trial date range</CardDescription>
+							<CardTitle className="text-xl text-(--sea-ink)">
+								{trialDateRange}
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="pt-0">
+							<p className="text-sm text-muted-foreground">
+								{pluralize(d.metadata.totalDays, "calendar day")} total period
+							</p>
+						</CardContent>
+					</Card>
+					<Card className="feature-card border-border/80">
+						<CardHeader className="pb-2">
+							<CardDescription>Locations covered</CardDescription>
+							<CardTitle className="text-xl text-(--sea-ink)">
+								{pluralize(d.metadata.locations.length, "location")}
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="pt-0">
+							{d.metadata.locations.length > 0 ? (
+								<ul className="grid list-none gap-2 p-0 sm:grid-cols-2">
+									{d.metadata.locations.map((location) => (
+										<li
+											key={location.id}
+											className="rounded-lg border border-border/70 bg-card/70 px-3 py-2"
+										>
+											<p className="truncate text-sm font-medium text-(--sea-ink)">
+												{location.locationName}
+											</p>
+											<p className="mt-0.5 text-xs text-muted-foreground">
+												{location.city}, {location.state} ·{" "}
+												{humanizeToken(location.zoneType)} · Facing{" "}
+												{location.directionFacing}
+											</p>
+										</li>
+									))}
+								</ul>
+							) : (
+								<p className="text-sm text-muted-foreground">
+									No linked event locations were found for this trial.
+								</p>
+							)}
+						</CardContent>
+					</Card>
+				</div>
+			</section>
+
 			<section aria-labelledby="scorecard-heading">
 				<h2 id="scorecard-heading" className="sr-only">
 					Executive scorecard
@@ -140,12 +221,14 @@ function RouteComponent() {
 							<CardHeader className="pb-2">
 								<CardDescription>Total events analyzed</CardDescription>
 								<CardTitle className="font-mono text-3xl tabular-nums text-(--sea-ink)">
-									{d.scorecard.totalEventsReviewed.toLocaleString()}
+									{d.scorecard.totalEventsAnalyzed.toLocaleString()}
 								</CardTitle>
 							</CardHeader>
 							<CardContent className="pt-0">
 								<p className="text-xs text-muted-foreground">
-									All trial-linked events in this period.
+									All trial-linked events in this period;{" "}
+									{d.scorecard.annotatedEvents.toLocaleString()} have structured
+									annotations.
 								</p>
 							</CardContent>
 						</Card>
@@ -153,15 +236,17 @@ function RouteComponent() {
 					<li>
 						<Card className="feature-card h-full border-border/80">
 							<CardHeader className="pb-2">
-								<CardDescription>Verified violations</CardDescription>
+								<CardDescription>Violation rate</CardDescription>
 								<CardTitle className="font-mono text-3xl tabular-nums text-(--sea-ink)">
-									{d.scorecard.confirmedViolations.toLocaleString()}
+									{d.scorecard.violationRate.toFixed(1)}%
+									<span className="ml-2 text-xl text-muted-foreground">
+										({d.scorecard.confirmedViolations.toLocaleString()})
+									</span>
 								</CardTitle>
 							</CardHeader>
 							<CardContent className="pt-0">
 								<p className="text-xs text-muted-foreground">
-									Labeled violations after structured review (
-									{d.scorecard.nonComplianceRate.toFixed(1)}% non-compliance).
+									Confirmed violations among annotated events.
 								</p>
 							</CardContent>
 						</Card>
@@ -178,12 +263,15 @@ function RouteComponent() {
 							<CardHeader className="pb-2 pr-24">
 								<CardDescription>Severe infractions</CardDescription>
 								<CardTitle className="font-mono text-3xl tabular-nums text-(--sea-ink)">
-									{d.scorecard.severeInfractions.toLocaleString()}
+									{d.scorecard.severeInfractionRate.toFixed(1)}%
+									<span className="ml-2 text-xl text-muted-foreground">
+										({d.scorecard.severeInfractions.toLocaleString()})
+									</span>
 								</CardTitle>
 							</CardHeader>
 							<CardContent className="pt-0">
 								<p className="text-xs text-muted-foreground">
-									Red-light and failure-to-yield only.
+									Share of violations that are red-light or failure-to-yield.
 								</p>
 							</CardContent>
 						</Card>
@@ -335,6 +423,132 @@ function RouteComponent() {
 						</BarChart>
 					</ResponsiveContainer>
 				</div>
+			</section>
+
+			<section
+				className="grid gap-4 lg:grid-cols-2"
+				aria-labelledby="distribution-heading"
+			>
+				<div className="sr-only" id="distribution-heading">
+					Violation distributions
+				</div>
+				<Card className="feature-card border-border/80">
+					<CardHeader>
+						<CardTitle className="text-lg text-(--sea-ink)">
+							Violation type distribution
+						</CardTitle>
+						<CardDescription>
+							Verified violations grouped by annotation category.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{violationDistributionData.length > 0 ? (
+							<div className="h-[min(360px,50vh)] min-h-[260px] w-full">
+								<ResponsiveContainer width="100%" height="100%">
+									<BarChart
+										data={violationDistributionData}
+										layout="vertical"
+										margin={{ top: 4, right: 16, left: 24, bottom: 4 }}
+									>
+										<CartesianGrid
+											stroke="var(--line)"
+											strokeDasharray="3 3"
+											horizontal={false}
+										/>
+										<XAxis
+											type="number"
+											allowDecimals={false}
+											tick={{ fill: "var(--sea-ink-soft)", fontSize: 11 }}
+										/>
+										<YAxis
+											dataKey="label"
+											type="category"
+											width={132}
+											tick={{ fill: "var(--sea-ink-soft)", fontSize: 11 }}
+										/>
+										<Tooltip
+											contentStyle={{
+												background: "var(--card)",
+												border: "1px solid var(--border)",
+												borderRadius: "var(--radius)",
+											}}
+										/>
+										<Bar
+											dataKey="count"
+											name="Violations"
+											fill="var(--lagoon-deep)"
+											radius={[0, 4, 4, 0]}
+											maxBarSize={28}
+										/>
+									</BarChart>
+								</ResponsiveContainer>
+							</div>
+						) : (
+							<p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+								No verified violations to chart.
+							</p>
+						)}
+					</CardContent>
+				</Card>
+
+				<Card className="feature-card border-border/80">
+					<CardHeader>
+						<CardTitle className="text-lg text-(--sea-ink)">
+							Violation zone distribution
+						</CardTitle>
+						<CardDescription>
+							Where verified violations occurred by deployment zone.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{zoneDistributionData.length > 0 ? (
+							<div className="h-[min(360px,50vh)] min-h-[260px] w-full">
+								<ResponsiveContainer width="100%" height="100%">
+									<BarChart
+										data={zoneDistributionData}
+										layout="vertical"
+										margin={{ top: 4, right: 16, left: 8, bottom: 4 }}
+									>
+										<CartesianGrid
+											stroke="var(--line)"
+											strokeDasharray="3 3"
+											horizontal={false}
+										/>
+										<XAxis
+											type="number"
+											allowDecimals={false}
+											tick={{ fill: "var(--sea-ink-soft)", fontSize: 11 }}
+										/>
+										<YAxis
+											dataKey="label"
+											type="category"
+											width={108}
+											tick={{ fill: "var(--sea-ink-soft)", fontSize: 11 }}
+										/>
+										<Tooltip
+											contentStyle={{
+												background: "var(--card)",
+												border: "1px solid var(--border)",
+												borderRadius: "var(--radius)",
+											}}
+										/>
+										<Bar
+											dataKey="violations"
+											name="Violations"
+											fill="var(--palm)"
+											radius={[0, 4, 4, 0]}
+											maxBarSize={28}
+										/>
+									</BarChart>
+								</ResponsiveContainer>
+							</div>
+						) : (
+							<p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+								No verified violations to chart.
+							</p>
+						)}
+					</CardContent>
+				</Card>
 			</section>
 		</div>
 	);

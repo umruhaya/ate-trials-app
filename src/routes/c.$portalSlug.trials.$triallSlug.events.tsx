@@ -201,15 +201,6 @@ function RouteComponent() {
 		}),
 	);
 
-	const locationsQuery = useQuery(
-		orpc.locations.list.queryOptions({
-			input: {
-				page: 1,
-				pageSize: 50,
-			},
-		}),
-	);
-
 	const annotateMutation = useMutation(
 		orpc.events.annotate.mutationOptions({
 			onSuccess: async () => {
@@ -242,9 +233,6 @@ function RouteComponent() {
 			? Math.min(100, (completedInSession / queueBaseline) * 100)
 			: 0;
 	const currentEventId = currentEvent?.id ?? null;
-	const currentLocation = locationsQuery.data?.items.find(
-		(location) => location.id === currentEvent?.deploymentId,
-	);
 	const [selectedType, setSelectedType] = useState<ViolationType | null>(null);
 	const [activeEntity, setActiveEntity] = useState<AnnotationEntity | null>(
 		null,

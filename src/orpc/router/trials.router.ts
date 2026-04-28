@@ -13,8 +13,11 @@ import {
 } from "~/schemas/trial";
 import {
 	DashboardDataSchema,
+	type DashboardLocation,
 	type DeterrenceDataPoint,
 	type ThreatMatrixDataPoint,
+	type ViolationDistributionDataPoint,
+	type ZoneDistributionDataPoint,
 } from "~/schemas/trials-dashboard";
 
 /** First N calendar days after trial start treat deterrence citations as advisory only. */
@@ -355,6 +358,107 @@ async function threatMatrixViolationCountsByHour(
 	return map;
 }
 
+async function locationsCoveredByTrial(
+	trialId: string,
+): Promise<DashboardLocation[]> {
+	const rows = await db
+		.select({
+			id: table.deployments.id,
+			locationName: table.deployments.locationName,
+			city: table.deployments.city,
+			state: table.deployments.state,
+			zoneType: table.deployments.zoneType,
+			directionFacing: table.deployments.directionFacing,
+		})
+		.from(table.trialEvents)
+		.innerJoin(table.events, eq(table.trialEvents.eventId, table.events.id))
+		.innerJoin(
+			table.deployments,
+			eq(table.events.deploymentId, table.deployments.id),
+		)
+		.where(eq(table.trialEvents.trialId, trialId))
+		.groupBy(
+			table.deployments.id,
+			table.deployments.locationName,
+			table.deployments.city,
+			table.deployments.state,
+			table.deployments.zoneType,
+			table.deployments.directionFacing,
+		);
+
+	return rows.map((row) => ({
+		id: row.id,
+		locationName: row.locationName,
+		city: row.city,
+		state: row.state,
+		zoneType: row.zoneType,
+		directionFacing: row.directionFacing,
+	}));
+}
+
+async function violationDistributionByType(
+	trialId: string,
+): Promise<ViolationDistributionDataPoint[]> {
+	const violationType = sql<string>`json_extract(${table.structuredAnnotations.annotation}, '$.violation.type')`;
+	const rows = await db
+		.select({
+			violationType: violationType.as("violation_type"),
+			count: sql<number>`count(*)`.mapWith(Number),
+		})
+		.from(table.trialEvents)
+		.innerJoin(table.events, eq(table.trialEvents.eventId, table.events.id))
+		.innerJoin(
+			table.structuredAnnotations,
+			eq(table.structuredAnnotations.eventId, table.events.id),
+		)
+		.where(
+			and(
+				eq(table.trialEvents.trialId, trialId),
+				eq(table.structuredAnnotations.isViolation, true),
+			),
+		)
+		.groupBy(violationType)
+		.orderBy(sql`count(*) desc`);
+
+	return rows.map((row) => ({
+		violationType: row.violationType,
+		count: row.count,
+	}));
+}
+
+async function violationDistributionByZone(
+	trialId: string,
+): Promise<ZoneDistributionDataPoint[]> {
+	const rows = await db
+		.select({
+			zoneType: table.deployments.zoneType,
+			violations: sql<number>`count(*)`.mapWith(Number),
+		})
+		.from(table.trialEvents)
+		.innerJoin(table.events, eq(table.trialEvents.eventId, table.events.id))
+		.innerJoin(
+			table.deployments,
+			eq(table.events.deploymentId, table.deployments.id),
+		)
+		.innerJoin(
+			table.structuredAnnotations,
+			eq(table.structuredAnnotations.eventId, table.events.id),
+		)
+		.where(
+			and(
+				eq(table.trialEvents.trialId, trialId),
+				eq(table.structuredAnnotations.isViolation, true),
+			),
+		)
+		.groupBy(table.deployments.zoneType)
+		.orderBy(sql`count(*) desc`);
+
+	return rows.map((row) => ({
+		zoneType: row.zoneType,
+		violations: row.violations,
+	}));
+}
+
 export const dashboard = base
 	.use(requireAdmin)
 	.route({
@@ -380,9 +484,19 @@ export const dashboard = base
 			errors.NOT_FOUND();
 		}
 
-		const [{ totalEventsReviewed }] = await db
-			.select({ totalEventsReviewed: count() })
+		const [{ totalEventsAnalyzed }] = await db
+			.select({ totalEventsAnalyzed: count() })
 			.from(table.trialEvents)
+			.where(eq(table.trialEvents.trialId, input.id));
+
+		const [{ annotatedEvents }] = await db
+			.select({ annotatedEvents: count() })
+			.from(table.trialEvents)
+			.innerJoin(table.events, eq(table.trialEvents.eventId, table.events.id))
+			.innerJoin(
+				table.structuredAnnotations,
+				eq(table.structuredAnnotations.eventId, table.events.id),
+			)
 			.where(eq(table.trialEvents.trialId, input.id));
 
 		const [{ confirmedViolations }] = await db
@@ -416,9 +530,11 @@ export const dashboard = base
 				),
 			);
 
-		const nonComplianceRate =
-			totalEventsReviewed > 0
-				? (confirmedViolations / totalEventsReviewed) * 100
+		const violationRate =
+			annotatedEvents > 0 ? (confirmedViolations / annotatedEvents) * 100 : 0;
+		const severeInfractionRate =
+			confirmedViolations > 0
+				? (severeInfractions / confirmedViolations) * 100
 				: 0;
 
 		const startMs = trialUtcStartMs(trial.startDate);
@@ -427,7 +543,7 @@ export const dashboard = base
 			startMs <= endMs ? Math.floor((endMs - startMs) / 86_400_000) + 1 : 0;
 
 		const dailyViolations =
-			totalEventsReviewed > 0
+			totalEventsAnalyzed > 0
 				? await deterrenceViolationCountsByDate(input.id)
 				: new Map<string, number>();
 
@@ -445,7 +561,7 @@ export const dashboard = base
 		}
 
 		const hourlyCounts =
-			totalEventsReviewed > 0
+			totalEventsAnalyzed > 0
 				? await threatMatrixViolationCountsByHour(input.id)
 				: new Map<number, number>();
 
@@ -457,16 +573,39 @@ export const dashboard = base
 			});
 		}
 
+		const [locations, violationDistribution, zoneDistribution]: [
+			DashboardLocation[],
+			ViolationDistributionDataPoint[],
+			ZoneDistributionDataPoint[],
+		] =
+			totalEventsAnalyzed > 0
+				? await Promise.all([
+						locationsCoveredByTrial(input.id),
+						violationDistributionByType(input.id),
+						violationDistributionByZone(input.id),
+					])
+				: [[], [], []];
+
 		return DashboardDataSchema.parse({
 			trialId: trial.id,
 			trialName: trial.title,
+			metadata: {
+				startDate: trial.startDate,
+				endDate: trial.endDate,
+				totalDays: trialDays,
+				locations,
+			},
 			scorecard: {
-				totalEventsReviewed,
+				totalEventsAnalyzed,
+				annotatedEvents,
 				confirmedViolations,
 				severeInfractions,
-				nonComplianceRate,
+				violationRate,
+				severeInfractionRate,
 			},
 			deterrenceCurve,
 			threatMatrix,
+			violationDistribution,
+			zoneDistribution,
 		});
 	});
