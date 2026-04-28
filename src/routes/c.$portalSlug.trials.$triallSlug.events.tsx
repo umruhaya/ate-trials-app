@@ -1,3 +1,4 @@
+import { type Hotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -48,59 +49,59 @@ const ENTITY_LABELS: Record<AnnotationEntity, string> = {
 	redLight: "Red light",
 };
 
+const OUTCOME_HOTKEYS = ["0", "1", "2", "3", "4", "5", "6"] as const;
+
+const ENTITY_HOTKEYS: Record<AnnotationEntity, Hotkey> = {
+	vehicle: "V",
+	pedestrian: "P",
+	redLight: "L",
+};
+
 const VIOLATION_OPTIONS: Array<{
 	type: ViolationType;
 	label: string;
-	description: string;
 	requiredEntities: AnnotationEntity[];
 	color: string;
 }> = [
 	{
 		type: "no-violation",
 		label: "No violation",
-		description: "Mark the event as reviewed without drawing boxes.",
 		requiredEntities: [],
 		color: "#16a34a",
 	},
 	{
 		type: "failure-to-yield",
 		label: "Failure to yield",
-		description: "Requires vehicle and pedestrian boxes.",
 		requiredEntities: ["vehicle", "pedestrian"],
 		color: "#f59e0b",
 	},
 	{
 		type: "red-light-violation",
 		label: "Red light violation",
-		description: "Requires vehicle and red light boxes.",
 		requiredEntities: ["vehicle", "redLight"],
 		color: "#ef4444",
 	},
 	{
 		type: "speeding-violation",
 		label: "Speeding",
-		description: "Requires a vehicle box and speed values.",
 		requiredEntities: ["vehicle"],
 		color: "#2563eb",
 	},
 	{
 		type: "distracted-driving-violation",
 		label: "Distracted driving",
-		description: "Requires a vehicle box.",
 		requiredEntities: ["vehicle"],
 		color: "#a855f7",
 	},
 	{
 		type: "stop-sign-violation",
 		label: "Stop sign violation",
-		description: "Requires a vehicle box.",
 		requiredEntities: ["vehicle"],
 		color: "#dc2626",
 	},
 	{
 		type: "seatbelt-violation",
 		label: "Seatbelt violation",
-		description: "Requires a vehicle box.",
 		requiredEntities: ["vehicle"],
 		color: "#0f766e",
 	},
@@ -175,11 +176,20 @@ function formatTime(ms: number) {
 	return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+function HotkeyBadge({ children }: { children: string }) {
+	return (
+		<kbd className="inline-flex min-w-5 items-center justify-center rounded border border-border/70 bg-background/90 px-1.5 py-0.5 font-mono text-[10px] font-semibold leading-none text-muted-foreground shadow-xs">
+			{children}
+		</kbd>
+	);
+}
+
 function RouteComponent() {
 	const { portalSlug, triallSlug } = Route.useParams();
 	const queryClient = useQueryClient();
 	const videoRef = useRef<HTMLVideoElement | null>(null);
 	const lastEventIdRef = useRef<string | null>(null);
+	const queueBaselineRef = useRef<number | null>(null);
 
 	const eventsQuery = useQuery(
 		orpc.events.unprocessedForTrial.queryOptions({
@@ -187,6 +197,15 @@ function RouteComponent() {
 				trialId: triallSlug,
 				page: 1,
 				pageSize: 25,
+			},
+		}),
+	);
+
+	const locationsQuery = useQuery(
+		orpc.locations.list.queryOptions({
+			input: {
+				page: 1,
+				pageSize: 50,
 			},
 		}),
 	);
@@ -203,7 +222,29 @@ function RouteComponent() {
 	);
 
 	const currentEvent = eventsQuery.data?.items[0] ?? null;
+	const totalUnprocessed = eventsQuery.data?.totalCount ?? 0;
+
+	useEffect(() => {
+		const data = eventsQuery.data;
+		if (data === undefined) return;
+		const n = data.totalCount;
+		if (queueBaselineRef.current === null) {
+			queueBaselineRef.current = n;
+		} else if (n > queueBaselineRef.current) {
+			queueBaselineRef.current = n;
+		}
+	}, [eventsQuery.data]);
+
+	const queueBaseline = queueBaselineRef.current ?? totalUnprocessed;
+	const completedInSession = Math.max(0, queueBaseline - totalUnprocessed);
+	const queueProgressPercent =
+		queueBaseline > 0
+			? Math.min(100, (completedInSession / queueBaseline) * 100)
+			: 0;
 	const currentEventId = currentEvent?.id ?? null;
+	const currentLocation = locationsQuery.data?.items.find(
+		(location) => location.id === currentEvent?.deploymentId,
+	);
 	const [selectedType, setSelectedType] = useState<ViolationType | null>(null);
 	const [activeEntity, setActiveEntity] = useState<AnnotationEntity | null>(
 		null,
@@ -238,6 +279,70 @@ function RouteComponent() {
 		missingEntities.length === 0 &&
 		speedReady &&
 		!annotateMutation.isPending;
+
+	useHotkeys(
+		[
+			...VIOLATION_OPTIONS.map((option, index) => ({
+				hotkey: OUTCOME_HOTKEYS[index],
+				callback: () => selectViolationType(option.type),
+				options: {
+					meta: {
+						name: `Choose ${option.label}`,
+						description: `Select ${option.label} as the event outcome`,
+					},
+				},
+			})),
+			...Object.entries(ENTITY_HOTKEYS).map(([entity, hotkey]) => ({
+				hotkey,
+				callback: () => setActiveEntity(entity as AnnotationEntity),
+				options: {
+					enabled: requiredEntities.includes(entity as AnnotationEntity),
+					meta: {
+						name: `Select ${ENTITY_LABELS[entity as AnnotationEntity]}`,
+						description: "Choose the bounding box entity to draw next",
+					},
+				},
+			})),
+			{
+				hotkey: "Space" as const,
+				callback: () => togglePlayback(),
+				options: {
+					enabled: currentEvent !== null,
+					meta: {
+						name: "Play or pause video",
+						description: "Toggle video playback while annotating",
+					},
+				},
+			},
+			{
+				hotkey: "R" as const,
+				callback: () => seekTo(0),
+				options: {
+					enabled: currentEvent !== null && durationMs > 0,
+					meta: {
+						name: "Restart video",
+						description: "Seek the video back to the beginning",
+					},
+				},
+			},
+			{
+				hotkey: "Enter" as const,
+				callback: () => void submitAnnotation(),
+				options: {
+					enabled: canSubmit,
+					meta: {
+						name: "Finish event",
+						description: "Submit the completed event annotation",
+					},
+				},
+			},
+		],
+		{
+			enabled: currentEvent !== null,
+			preventDefault: true,
+			stopPropagation: true,
+		},
+	);
 
 	useEffect(() => {
 		if (lastEventIdRef.current === currentEventId) return;
@@ -380,6 +485,19 @@ function RouteComponent() {
 		setCurrentTimeMs(seconds * 1000);
 	}
 
+	function syncVideoTiming(video: HTMLVideoElement) {
+		setCurrentTimeMs(video.currentTime * 1000);
+
+		const durationInSeconds =
+			Number.isFinite(video.duration) && video.duration > 0
+				? video.duration
+				: video.seekable.length > 0
+					? video.seekable.end(video.seekable.length - 1)
+					: 0;
+
+		setDurationMs(durationInSeconds * 1000);
+	}
+
 	if (eventsQuery.isPending) {
 		return (
 			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -417,19 +535,58 @@ function RouteComponent() {
 	}
 
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex flex-col gap-3">
 			<header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-				<div>
-					<p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-						Annotation queue
-					</p>
-					<h1 className="text-2xl font-semibold tracking-tight text-(--sea-ink)">
-						Review event
-					</h1>
-					<p className="mt-1 text-sm text-muted-foreground">
-						{eventsQuery.data.totalCount.toLocaleString()} unprocessed events
-						remaining in this trial.
-					</p>
+				<div className="min-w-0 flex-1 space-y-2">
+					<div>
+						<p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+							Annotation queue
+						</p>
+						<h1 className="text-2xl font-semibold tracking-tight text-(--sea-ink)">
+							Review event
+						</h1>
+					</div>
+					<div className="flex-1 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 shadow-sm">
+						<div className="flex flex-wrap items-baseline justify-between gap-2">
+							<p className="text-sm font-medium text-(--sea-ink)">
+								<span className="text-2xl font-bold tabular-nums text-primary">
+									{totalUnprocessed.toLocaleString()}
+								</span>{" "}
+								<span className="text-muted-foreground">
+									unprocessed
+									{totalUnprocessed === 1 ? " event" : " events"} left in this
+									trial
+								</span>
+							</p>
+							{queueBaseline > 0 && completedInSession > 0 ? (
+								<span className="text-xs font-medium tabular-nums text-muted-foreground">
+									{completedInSession.toLocaleString()} of{" "}
+									{queueBaseline.toLocaleString()} done this session
+								</span>
+							) : null}
+						</div>
+						<div
+							className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
+							role="progressbar"
+							aria-valuenow={completedInSession}
+							aria-valuemin={0}
+							aria-valuemax={queueBaseline}
+							aria-label="Events completed this session"
+						>
+							<div
+								className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
+								style={{ width: `${queueProgressPercent}%` }}
+							/>
+						</div>
+						<p className="mt-2 text-xs text-muted-foreground">
+							Tip: use hotkeys for faster review. Press{" "}
+							<HotkeyBadge>0-6</HotkeyBadge> for outcomes,{" "}
+							<HotkeyBadge>V</HotkeyBadge>, <HotkeyBadge>P</HotkeyBadge>, or{" "}
+							<HotkeyBadge>L</HotkeyBadge> for boxes,{" "}
+							<HotkeyBadge>Space</HotkeyBadge> to play or pause, and{" "}
+							<HotkeyBadge>Enter</HotkeyBadge> to finish.
+						</p>
+					</div>
 				</div>
 				<Button asChild variant="outline" size="sm">
 					<Link to="/c/$portalSlug/trials" params={{ portalSlug }} search={{}}>
@@ -439,20 +596,20 @@ function RouteComponent() {
 			</header>
 
 			<Card className="border-border/80">
-				<CardHeader className="pb-3">
+				<CardHeader className="space-y-1 px-4 pt-3 pb-2">
 					<CardTitle>1. Choose outcome</CardTitle>
-					<CardDescription>
+					<CardDescription className="text-balance">
 						Select the violation type first, then draw only the boxes required
 						for that outcome.
 					</CardDescription>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="px-4 pb-3 pt-0">
 					<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
-						{VIOLATION_OPTIONS.map((option) => (
+						{VIOLATION_OPTIONS.map((option, index) => (
 							<button
 								key={option.type}
 								type="button"
-								className="min-h-28 rounded-lg border border-border/80 p-3 text-left transition hover:bg-muted/50 data-[selected=true]:border-primary data-[selected=true]:bg-primary/10"
+								className="relative min-h-16 rounded-lg border border-border/80 p-2.5 pr-8 text-left transition hover:bg-muted/50 data-[selected=true]:border-primary data-[selected=true]:bg-primary/10"
 								data-selected={selectedType === option.type}
 								style={
 									selectedType === option.type
@@ -464,15 +621,13 @@ function RouteComponent() {
 								}
 								onClick={() => selectViolationType(option.type)}
 							>
-								<span className="flex h-full flex-col items-start gap-2">
+								<span className="absolute top-2 right-2">
+									<HotkeyBadge>{OUTCOME_HOTKEYS[index]}</HotkeyBadge>
+								</span>
+								<span className="flex h-full flex-col items-start gap-1.5">
 									<OutcomeIcon type={option.type} color={option.color} />
-									<span className="min-w-0">
-										<span className="block text-sm font-semibold leading-tight text-(--sea-ink)">
-											{option.label}
-										</span>
-										<span className="mt-1 block text-xs leading-snug text-muted-foreground">
-											{option.description}
-										</span>
+									<span className="block min-w-0 text-sm font-semibold leading-tight text-(--sea-ink)">
+										{option.label}
 									</span>
 								</span>
 							</button>
@@ -489,12 +644,10 @@ function RouteComponent() {
 							src={MOCK_VIDEO_SRC}
 							muted
 							className="size-full object-contain"
-							onLoadedMetadata={(event) =>
-								setDurationMs(event.currentTarget.duration * 1000)
-							}
-							onTimeUpdate={(event) =>
-								setCurrentTimeMs(event.currentTarget.currentTime * 1000)
-							}
+							onLoadedMetadata={(event) => syncVideoTiming(event.currentTarget)}
+							onDurationChange={(event) => syncVideoTiming(event.currentTarget)}
+							onCanPlay={(event) => syncVideoTiming(event.currentTarget)}
+							onTimeUpdate={(event) => syncVideoTiming(event.currentTarget)}
 							onPlay={() => setIsPlaying(true)}
 							onPause={() => setIsPlaying(false)}
 						/>
@@ -508,14 +661,15 @@ function RouteComponent() {
 					</div>
 
 					<Card className="border-border/80">
-						<CardContent className="flex flex-col gap-3 pt-6">
+						<CardContent className="flex flex-col gap-2 p-3">
 							<div className="flex flex-wrap items-center gap-2">
 								<Button
 									type="button"
 									variant="outline"
 									onClick={togglePlayback}
 								>
-									{isPlaying ? "Pause" : "Play"}
+									{isPlaying ? "Pause" : "Play"}{" "}
+									<HotkeyBadge>Space</HotkeyBadge>
 								</Button>
 								<Button
 									type="button"
@@ -523,7 +677,7 @@ function RouteComponent() {
 									onClick={() => seekTo(0)}
 									disabled={durationMs === 0}
 								>
-									Restart
+									Restart <HotkeyBadge>R</HotkeyBadge>
 								</Button>
 								<span className="ml-auto font-mono text-sm text-muted-foreground">
 									{formatTime(currentTimeMs)} / {formatTime(durationMs)}
@@ -577,6 +731,7 @@ function RouteComponent() {
 											>
 												{ENTITY_LABELS[entity]}
 												{hasBox ? " ✓" : ""}
+												<HotkeyBadge>{ENTITY_HOTKEYS[entity]}</HotkeyBadge>
 											</Button>
 										);
 									})}
@@ -668,7 +823,8 @@ function RouteComponent() {
 								disabled={!canSubmit}
 								onClick={() => void submitAnnotation()}
 							>
-								{annotateMutation.isPending ? "Saving..." : "Done"}
+								{annotateMutation.isPending ? "Saving..." : "Done"}{" "}
+								<HotkeyBadge>Enter</HotkeyBadge>
 							</Button>
 						</CardContent>
 					</Card>
