@@ -61,7 +61,7 @@ function RouteComponent() {
 					<span className="font-medium text-foreground">
 						{displayPortal.name}
 					</span>
-					<span className="font-mono text-xs text-muted-foreground">
+					<span className="font-medium italic text-muted-foreground">
 						/{displayPortal.slug}
 					</span>
 				</nav>
