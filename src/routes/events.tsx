@@ -1,6 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "~/auth";
-import { Button } from "~/components/ui/button";
 import { requireAuthenticated } from "~/lib/session";
 
 export const Route = createFileRoute("/events")({
@@ -9,25 +8,12 @@ export const Route = createFileRoute("/events")({
 });
 
 function RouteComponent() {
-	const navigate = useNavigate();
-	const { user, logout } = useAuth();
-
-	async function handleLogout() {
-		await logout();
-		await navigate({ to: "/" });
-	}
+	const { user } = useAuth();
 
 	return (
 		<div className="page-wrap flex min-h-screen flex-col items-center justify-center gap-6 py-12">
-			<div className="flex w-full max-w-lg items-center justify-between">
+			<div className="flex w-full max-w-lg items-center justify-start">
 				<h1 className="text-2xl font-semibold">Events</h1>
-				<Button
-					type="button"
-					variant="outline"
-					onClick={() => void handleLogout()}
-				>
-					Sign out
-				</Button>
 			</div>
 			<p className="text-muted-foreground">
 				Signed in as <strong>{user?.username}</strong> ({user?.role})
