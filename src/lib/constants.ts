@@ -6,3 +6,8 @@ export const ROUTES = {
 	DEFAULT: (role: "admin" | "data-annotator"): "/trials" | "/events" =>
 		role === "admin" ? "/trials" : "/events",
 };
+
+export const PAGINATION = {
+	FIRST_PAGE: 1,
+	DEFAULT_PAGE_SIZE: 10,
+};
