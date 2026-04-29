@@ -97,7 +97,7 @@ function Home() {
 											<div>
 												<span className="font-medium">Admin</span>
 												<p className="text-xs text-muted-foreground">
-													Full access — goes to trials after login
+													Management Access
 												</p>
 											</div>
 										</label>
@@ -112,7 +112,7 @@ function Home() {
 											<div>
 												<span className="font-medium">Contributor</span>
 												<p className="text-xs text-muted-foreground">
-													Data annotator — goes to events after login
+													Data annotator
 												</p>
 											</div>
 										</label>
