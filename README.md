@@ -2,7 +2,9 @@
 
 An MVP for managing Automatic Traffic Enforcement trial programs, reviewing trial outcomes, and supporting data annotators as they classify event violations.
 
-Live demo: <http://ate-trials.apps.umernaeem.com/>
+Live demo: <https://ate-trials.apps.umernaeem.com/>
+
+Async Walkthrough: <https://www.loom.com/share/7ab45328a6624973af7d8956979c756e>
 
 ## Setup
 
