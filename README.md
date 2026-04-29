@@ -46,6 +46,128 @@ Use `bun db:push` when the local SQLite schema needs to be pushed, and `bun db:s
 - The data annotation tool supports violation classification, keyboard shortcuts for faster workflows, and progress feedback as a small gamified reward loop for annotators.
 - Trial creation supports location-based filtering so trials can be scoped to relevant events.
 
+## Database schema
+
+Entity relationships for the SQLite schema defined in `src/db/schema.ts`:
+
+```mermaid
+erDiagram
+    users {
+        text id PK
+        text username UK
+        text role
+        timestamp created_at
+    }
+
+    community_portals {
+        text id PK
+        text name
+        text slug UK
+        text description
+        text created_by FK
+        boolean enabled
+        timestamp created_at
+    }
+
+    deployments {
+        text id PK
+        text city
+        text state
+        text country_code
+        float latitude
+        float longitude
+        text location_name
+        text direction_facing
+        text zone_type
+        text mounting_point
+        text device_id
+    }
+
+    trials {
+        text id PK
+        text title
+        text description
+        text created_by FK
+        boolean enabled
+        text community_portal_id FK
+        timestamp start_date
+        timestamp end_date
+        timestamp created_at
+    }
+
+    events {
+        text id PK
+        text external_blob_ref
+        timestamp timestamp
+        text deployment_id FK
+        json metadata
+    }
+
+    trial_events {
+        text event_id PK
+        text trial_id PK
+    }
+
+    structured_annotations {
+        text id PK
+        text event_id FK
+        boolean is_violation
+        json annotation
+        timestamp created_at
+        text created_by FK
+    }
+
+    users ||--o{ community_portals : creates
+    users ||--o{ trials : creates
+    users ||--o{ structured_annotations : creates
+    community_portals ||--o{ trials : has
+    deployments ||--o{ events : has
+    events ||--o{ structured_annotations : has
+    events ||--|{ trial_events : links
+    trials ||--|{ trial_events : links
+```
+
+## User flow overview
+
+At a quick glance, admins set up the trial context and review outcomes, while data annotators convert raw event queues into structured evidence that powers the dashboards.
+
+```mermaid
+flowchart TD
+    admin[Admin]
+    annotator[Data annotator]
+
+    signin[Sign in and choose role]
+    portals[Community portals]
+    trials[Trials]
+    locations[Locations and deployments]
+    events[Event queue]
+    annotations[Structured annotations]
+    dashboard[Trial dashboard]
+    stakeholders[Civic stakeholders]
+
+    signin --> admin
+    signin --> annotator
+
+    admin -->|create and edit| portals
+    admin -->|create and edit| trials
+    admin -->|select timeframe and locations| locations
+    locations -->|scope matching events| trials
+    trials -->|build queue| events
+
+    annotator -->|browse| portals
+    annotator -->|select trial| trials
+    annotator -->|review video events| events
+    events -->|classify violation and draw entities| annotations
+
+    annotations -->|verified/non-violation outcomes| dashboard
+    dashboard -->|performance, deterrence, threat matrix| admin
+    admin -->|uses evidence for decisions| stakeholders
+    stakeholders -->|feedback and rollout decisions| admin
+
+    admin -.defines what needs review.-> events
+    annotator -.improves evidence quality.-> dashboard
+```
+
 ## Production Grade Considerations
 
 If this were production grade, I would invest in:
