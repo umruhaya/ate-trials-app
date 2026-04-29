@@ -1,223 +1,113 @@
-Welcome to your new TanStack Start app!
+# Automatic Traffic Enforcement (ATE) Trials App
 
-# Getting Started
+An MVP for managing Automatic Traffic Enforcement trial programs, reviewing trial outcomes, and supporting data annotators as they classify event violations.
 
-To run this application:
+Live demo: <http://ate-trials.apps.umernaeem.com/>
 
-```bash
-bun install
-bun --bun run dev
-```
+## Setup
 
-# Building For Production
+You can either use the live demo above or run the app locally.
 
-To build this application for production:
+Prerequisites:
 
-```bash
-bun --bun run build
-```
+- [Bun](https://bun.sh/) installed locally.
 
-## Testing
-
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
+First-time local setup:
 
 ```bash
-bun --bun run test
+cp .env.example .env
+bun i
+bun db:push
+bun db:seed
+bun run dev
 ```
 
-## Styling
+The development server runs on port `3000` by default.
 
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
-
-### Removing Tailwind CSS
-
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Uninstall the packages: `bun install @tailwindcss/vite tailwindcss -D`
-
-## Linting & Formatting
-
-This project uses [Biome](https://biomejs.dev/) for linting and formatting. The following scripts are available:
+For a production build:
 
 ```bash
-bun --bun run lint
-bun --bun run format
-bun --bun run check
+bun run build
 ```
 
-## Shadcn
+Use `bun db:push` when the local SQLite schema needs to be pushed, and `bun db:seed` for first-time seed data.
 
-Add components using the latest version of [Shadcn](https://ui.shadcn.com/).
+## Features And Decisions
 
-```bash
-pnpm dlx shadcn@latest add button
-```
+- Simple RBAC-based authentication with two roles: `admin` and `data annotator`.
+- Username-only sign-in for the MVP. There is no password flow yet.
+- Auth state uses a simple ID-based HTTP-only cookie for straightforward session management.
+- SQLite is used for operational simplicity and easy deployment.
+- Admin users can create, edit, and view community portals and trials, and can access dashboards.
+- Data annotators can view portals and trials, and can access the data annotation tool for events.
+- Trial dashboards use high-quality visualizations designed to tell a narrative about trial performance.
+- The data annotation tool supports violation classification, keyboard shortcuts for faster workflows, and progress feedback as a small gamified reward loop for annotators.
+- Trial creation supports location-based filtering so trials can be scoped to relevant events.
 
-## T3Env
+## Production Grade Considerations
 
-- You can use T3Env to add type safety to your environment variables.
-- Add Environment variables to the `src/env.mjs` file.
-- Use the environment variables in your code.
+If this were production grade, I would invest in:
 
-### Usage
+- Clean architecture with stronger separation of concerns across controllers, services, data access, and presentation layers.
+- PostgreSQL or another production-grade database for heavier workloads and operational reliability.
+- End-to-end tests with Playwright for core user flows.
+- Inversion of control and dependency injection to make services easier to mock and test.
+- A real event raw blob service. The current version uses mocked event blob behavior.
+- An external service or ETL pipeline to sync events from existing systems into this app.
+- Proper timezone handling for all date and time behavior.
+- Production-ready authentication, authorization, session expiry, and credential management.
+- Queue handling for data annotation, using optimistic locks or a partitioning/assignment strategy so two annotators do not receive the same event from the same queue.
+- Dashboard enhancements beyond the current trial-level view.
+- Dashboard support at the community portal and location levels, alongside the existing trial-level dashboards.
+- A formal design system with tokens for visual consistency, potentially using a more enterprise-grade UI library such as Ant Design.
 
-```ts
-import { env } from "~/env";
+## Goodies With More Time
 
-console.log(env.VITE_APP_TITLE);
-```
+These are enhancements I would explore with more time. Some are production-oriented, while others are advanced product ideas:
 
-## Routing
+- An integrated AI chatbot on the dashboard that acts as an analysis agent, generates and runs custom queries on demand, and creates visualizations. This would be an advanced or beta feature.
+- Toast messages for success and failure feedback.
+- Optimistic updates for a snappier UI.
+- Stats per community portal and stats per trial.
+- Preloading video streams for queued data annotation events to reduce wait time, especially because videos are high quality and large.
+- Adaptive video streaming so annotators can work with lower-quality streams when bandwidth is limited and switch to high quality when needed. This would require significant infrastructure and compute.
+- Campaign creation for data annotators, or an invite-based system for sending annotation invites.
+- Efficiency and KPI tracking for data annotators, including recognition or gamification-based incentives where financial incentives are not involved.
+- Cross-checks in the data annotation tool to reduce misuse and invalid annotations.
+- Rate limits and stricter anti-spam and abuse policies for the data annotation tool.
 
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
+## Dashboard Narrative & Visualization Strategy
 
-### Adding A Route
+The design of the Trial Dashboard is intentionally constructed to address the unique political and economic realities of the B2G (Business-to-Government) automated traffic enforcement sector. A trial is not merely a dataset; it is a diagnostic instrument and a sales mechanism. The dashboard is engineered to tell a persuasive, psychological story to secure executive and municipal buy-in.
 
-To add a new route to your application just add a new file in the `./src/routes` directory.
+### The Business Context & The Deterrence Paradox
 
-TanStack will automatically generate the content of the route file for you.
+The automated enforcement business model operates on a "self-consuming economic engine". If the product works perfectly, it rapidly changes driver behavior, which decreases violations and consequently destroys its own citation revenue over time—a phenomenon known as the **Deterrence Paradox**.
 
-Now that you have two routes you can use a `Link` component to navigate between them.
+### Target Audience & Core Concerns
 
-### Adding Links
+The primary consumers of this dashboard are civic stakeholders, city councils, and police chiefs. Their primary hesitation in adopting automated enforcement is the **"Predatory" Objection**—the fear that cameras are simply "bounty hunting" mechanisms designed to farm communities for cash.
 
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
+To succeed, the dashboard must empirically prove that the system prioritizes public safety and behavioral correction, rather than infinite revenue generation. Every visualization was chosen to neutralize these political objections and validate the severity of the localized threat.
 
-```tsx
-import { Link } from "@tanstack/react-router";
-```
+### Why These Visualizations Were Chosen
 
-Then anywhere in your JSX you can use it like so:
+**1. The Executive Scorecard (The Baseline Threat)**
 
-```tsx
-<Link to="/about">About</Link>
-```
+- **What it is:** High-level KPI metrics displaying _Total Events Analyzed_, _Verified Violations_, _Non-Compliance Rate_, and _Severe Infractions_.
+- **The Purpose:** City councils respond to easily digestible risk metrics. This establishes the immediate scale of the civic danger. By explicitly isolating "Severe Infractions" (e.g., red-light violations), it proves the system understands that not all violations are equal and prioritizes life-threatening behavior over minor infractions.
 
-This will create a link that will navigate to the `/about` route.
+**2. The Deterrence Curve (The Anti-Predatory Proof)**
 
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
+- **What it is:** A line chart plotting the volume of daily violations over the course of the 30-day trial.
+- **The Purpose:** This is the most critical chart for overcoming the "predatory revenue" objection. By visually demonstrating a steep downward decay curve, it proves that the camera's presence alone acts as a psychological deterrent. It reframes the narrative from "revenue generation" to "active behavioral correction," proving the system fixes the problem rather than permanently taxing the community.
 
-### Using A Layout
+**3. The Threat Matrix (The Emotional Trigger)**
 
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
+- **What it is:** A temporal heatmap/bar chart displaying violations by the hour of the day, specifically pre-filtered for sensitive zones like school zones.
+- **The Purpose:** Abstract numbers do not drive municipal action; visceral danger does. High violation rates clustering around 7:30 AM – 8:30 AM correlate directly with school drop-off hours. This visualization is a strategic emotional trigger that shifts the political conversation entirely away from revenue and centers it on protecting children.
 
-Here is an example layout that includes a header:
+**4. Violation & Zone Distributions (Contextualizing Kinematic Danger)**
 
-```tsx
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "My App" },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-});
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from "@tanstack/react-start";
-
-const getServerTime = createServerFn({
-  method: "GET",
-}).handler(async () => {
-  return new Date().toISOString();
-});
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState("");
-
-  useEffect(() => {
-    getServerTime().then(setTime);
-  }, []);
-
-  return <div>Server time: {time}</div>;
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from "@tanstack/react-router";
-import { json } from "@tanstack/react-start";
-
-export const Route = createFileRoute("/api/hello")({
-  server: {
-    handlers: {
-      GET: () => json({ message: "Hello, World!" }),
-    },
-  },
-});
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from "@tanstack/react-router";
-
-export const Route = createFileRoute("/people")({
-  loader: async () => {
-    const response = await fetch("https://swapi.dev/api/people");
-    return response.json();
-  },
-  component: PeopleComponent,
-});
-
-function PeopleComponent() {
-  const data = Route.useLoaderData();
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  );
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-# Demo files
-
-Files prefixed with `demo` can be safely deleted. They are there to provide a starting point for you to play around with the features you've installed.
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+- **What it is:** Breakdown charts categorizing the types of violations (e.g., speeding vs. failure-to-yield) and the physical zones where they occur.
+- **The Purpose:** Categorizing the kinematic danger proves the system isn't nitpicking harmless behaviors. Emphasizing high-severity offenses validates the system's objective fairness and justifies its permanent deployment.
